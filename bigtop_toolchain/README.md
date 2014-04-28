@@ -76,7 +76,7 @@ where <path_to_bigtop> is the cloned git repo.
 
 ## Requirements
 
-Due to redistribution restrictions the Oracle JDK must be downloaded seperately. 
+Due to redistribution restrictions the Oracle JDK must be downloaded separately.
 
 Download the JDK 64bit rpm.bin file, run it with the -x switch to extract the
 rpm file and copy jdk-6u45-linux-amd64.rpm to files/.

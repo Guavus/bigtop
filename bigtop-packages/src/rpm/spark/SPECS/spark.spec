@@ -46,7 +46,7 @@ BuildArch: noarch
 Buildroot: %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 License: ASL 2.0
 Source0: %{spark_name}-%{spark_base_version}.tar.gz
-Source1: do-component-build 
+Source1: do-component-build
 Source2: install_%{spark_name}.sh
 Source3: spark-master.svc
 Source4: spark-worker.svc
@@ -70,7 +70,7 @@ Requires: redhat-lsb
 
 %endif
 
-%description 
+%description
 Spark is a MapReduce-like cluster computing framework designed to support
 low-latency iterative jobs and interactive use from an interpreter. It is
 written in Scala, a high-level language for the JVM, and exposes a clean

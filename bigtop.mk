@@ -1,4 +1,4 @@
-# Licensed to the Apache Software Foundation (ASF) under one or more
+
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
 # The ASF licenses this file to You under the Apache License, Version 2.0
@@ -18,8 +18,8 @@ BIGTOP_VERSION=0.8.0
 # Hadoop 0.20.0-based hadoop package
 HADOOP_NAME=hadoop
 HADOOP_RELNOTES_NAME=Apache Hadoop
-HADOOP_BASE_VERSION=2.3.0
-HADOOP_PKG_VERSION=2.3.0
+HADOOP_BASE_VERSION=2.4.0
+HADOOP_PKG_VERSION=2.4.0
 HADOOP_RELEASE_VERSION=1
 HADOOP_TARBALL_DST=$(HADOOP_NAME)-$(HADOOP_BASE_VERSION).tar.gz
 HADOOP_TARBALL_SRC=$(HADOOP_NAME)-$(HADOOP_BASE_VERSION)-src.tar.gz
@@ -32,8 +32,8 @@ $(eval $(call PACKAGE,hadoop,HADOOP))
 ZOOKEEPER_NAME=zookeeper
 ZOOKEEPER_RELNOTES_NAME=Apache Zookeeper
 ZOOKEEPER_PKG_NAME=zookeeper
-ZOOKEEPER_BASE_VERSION=3.4.5
-ZOOKEEPER_PKG_VERSION=3.4.5
+ZOOKEEPER_BASE_VERSION=3.4.6
+ZOOKEEPER_PKG_VERSION=3.4.6
 ZOOKEEPER_RELEASE_VERSION=1
 ZOOKEEPER_TARBALL_DST=zookeeper-$(ZOOKEEPER_BASE_VERSION).tar.gz
 ZOOKEEPER_TARBALL_SRC=$(ZOOKEEPER_TARBALL_DST)
@@ -183,7 +183,7 @@ HUE_SITE=https://github.com/cloudera/hue/archive
 HUE_ARCHIVE=$(HUE_SITE)
 $(eval $(call PACKAGE,hue,HUE))
 
-# DataFu 
+# DataFu
 DATAFU_NAME=datafu
 DATAFU_RELNOTES_NAME=Collection of user-defined functions
 DATAFU_PKG_NAME=pig-udf-datafu
@@ -224,12 +224,12 @@ CRUNCH_SITE=$(APACHE_MIRROR)$(CRUNCH_DOWNLOAD_PATH)
 CRUNCH_ARCHIVE=$(APACHE_ARCHIVE)$(CRUNCH_DOWNLOAD_PATH)
 $(eval $(call PACKAGE,crunch,CRUNCH))
 
-# Spark 
+# Spark
 SPARK_NAME=spark
 SPARK_RELNOTES_NAME=Spark
 SPARK_PKG_NAME=spark-core
-SPARK_BASE_VERSION=0.9.1
-SPARK_PKG_VERSION=0.9.1
+SPARK_BASE_VERSION=1.0.0
+SPARK_PKG_VERSION=1.0.0
 SPARK_RELEASE_VERSION=1
 SPARK_TARBALL_DST=spark-$(SPARK_BASE_VERSION).tar.gz
 SPARK_TARBALL_SRC=spark-$(SPARK_BASE_VERSION).tgz
@@ -300,3 +300,6 @@ BIGTOP_TOMCAT_TARBALL_DST=apache-tomcat-$(BIGTOP_TOMCAT_BASE_VERSION).tar.gz
 BIGTOP_TOMCAT_SITE=$(APACHE_MIRROR)/tomcat/tomcat-6/v$(BIGTOP_TOMCAT_BASE_VERSION)/src/
 BIGTOP_TOMCAT_ARCHIVE=$(APACHE_ARCHIVE)/tomcat/tomcat-6/v$(BIGTOP_TOMCAT_BASE_VERSION)/src/
 $(eval $(call PACKAGE,bigtop-tomcat,BIGTOP_TOMCAT))
+
+# TODO Add Scala
+# TODO Add Kafka

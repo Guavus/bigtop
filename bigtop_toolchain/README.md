@@ -71,12 +71,12 @@ If you do not want to use a puppet master this module can be applied
 standalone with a command such as:
 
 	puppet apply --modulepath=<path_to_bigtop> -e "include bigtop_toolchain::installer"
-	
+
 where <path_to_bigtop> is the cloned git repo.
 
 ## Requirements
 
-For RedHat/Centos, due to redistribution restrictions the Oracle JDK must be downloaded seperately. 
+For RedHat/Centos, due to redistribution restrictions the Oracle JDK must be downloaded separately.
 
 Download the JDK 64bit rpm.bin file, run it with the -x switch to extract the
 rpm file and copy jdk-6u45-linux-amd64.rpm to files/.

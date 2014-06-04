@@ -23,7 +23,9 @@ if [ "x$SCALA_HOME" = "x" ]; then
     exit 2
 fi
 
-BUILD_OPTS="-Divy.home=${HOME}/.ivy2 -Dsbt.ivy.home=${HOME}/.ivy2 -Duser.home=${HOME} \
+# TODO: why skip tests?
+BUILD_OPTS="-P yarn,hadoop-provided \
+	    -Divy.home=${HOME}/.ivy2 -Dsbt.ivy.home=${HOME}/.ivy2 -Duser.home=${HOME} \
             -Drepo.maven.org=$IVY_MIRROR_PROP \
             -Dreactor.repo=file://${HOME}/.m2/repository \
             -Dhadoop.version=$HADOOP_VERSION \

@@ -43,6 +43,7 @@ TARGETS_CLEAN:=
 # Default Apache mirror
 APACHE_MIRROR ?= http://apache.osuosl.org
 APACHE_ARCHIVE ?= http://archive.apache.org/dist
+GUAVUS_ARCHIVE ?= http://repo.guavuslabs.com/archive
 
 # Include the implicit rules and functions for building packages
 include package.mk

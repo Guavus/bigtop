@@ -29,6 +29,9 @@
 # After we run "ant package" we'll find the distribution here
 %define hive_dist build/dist
 
+%define _with_redhat $([ -d /usr/lib/rpm/redhat ] && echo "1")
+%define _with_amazon $([ -d /usr/lib/rpm/amazon ] && echo "1")
+
 %if  %{!?suse_version:1}0
 
 %define doc_hive %{_docdir}/%{name}-%{hive_version}
@@ -87,8 +90,8 @@ Requires: hadoop-client, bigtop-utils >= 0.7, zookeeper, hive-jdbc = %{version}-
 Conflicts: hadoop-hive
 Obsoletes: %{name}-webinterface
 
-%description 
-Hive is a data warehouse infrastructure built on top of Hadoop that provides tools to enable easy data summarization, adhoc querying and analysis of large datasets data stored in Hadoop files. It provides a mechanism to put structure on this data and it also provides a simple query language called Hive QL which is based on SQL and which enables users familiar with SQL to query this data. At the same time, this language also allows traditional map/reduce programmers to be able to plug in their custom mappers and reducers to do more sophisticated analysis which may not be supported by the built-in capabilities of the language. 
+%description
+Hive is a data warehouse infrastructure built on top of Hadoop that provides tools to enable easy data summarization, adhoc querying and analysis of large datasets data stored in Hadoop files. It provides a mechanism to put structure on this data and it also provides a simple query language called Hive QL which is based on SQL and which enables users familiar with SQL to query this data. At the same time, this language also allows traditional map/reduce programmers to be able to plug in their custom mappers and reducers to do more sophisticated analysis which may not be supported by the built-in capabilities of the language.
 
 %package server
 Summary: Provides a Hive Thrift service.
@@ -217,12 +220,27 @@ Requires: initscripts
 # CentOS 5 does not have any dist macro
 # So I will suppose anything that is not Mageia or a SUSE will be a RHEL/CentOS/Fedora
 %if %{!?suse_version:1}0 && %{!?mgaversion:1}0
+
+%if %{?_with_redhat:1}%{!?_with_redhat:0}
 %define __os_install_post \
     /usr/lib/rpm/redhat/brp-compress ; \
     /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
     /usr/lib/rpm/redhat/brp-strip-comment-note %{__strip} %{__objdump} ; \
     /usr/lib/rpm/brp-python-bytecompile ; \
     %{nil}
+
+%endif
+
+%if %{?_with_amazon:1}%{!?_with_amazon:0}
+%define __os_install_post \
+    /usr/lib/rpm/amazon/brp-compress ; \
+    /usr/lib/rpm/amazon/brp-strip-static-archive %{__strip} ; \
+    /usr/lib/rpm/amazon/brp-strip-comment-note %{__strip} %{__objdump} ; \
+    /usr/lib/rpm/brp-python-bytecompile ; \
+    %{nil}
+
+%endif
+
 # Required for init scripts
 Requires: redhat-lsb
 %endif

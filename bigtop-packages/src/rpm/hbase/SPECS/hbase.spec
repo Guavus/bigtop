@@ -27,6 +27,9 @@
 %define hadoop_home /usr/lib/hadoop
 %define zookeeper_home /usr/lib/zookeeper
 
+%define _with_redhat $([ -d /usr/lib/rpm/redhat ] && echo "1")
+%define _with_amazon $([ -d /usr/lib/rpm/amazon ] && echo "1")
+
 %if  %{?suse_version:1}0
 
 # Only tested on openSUSE 11.4. le'ts update it for previous release when confirmed
@@ -59,14 +62,25 @@
 # and make whole process to fail.
 # So for now brp-repack-jars is being deactivated until this is fixed.
 # See BIGTOP-294
+%if %{?_with_redhat:1}%{!?_with_redhat:0}
 %define __os_install_post \
     /usr/lib/rpm/redhat/brp-compress ; \
     /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
     /usr/lib/rpm/redhat/brp-strip-comment-note %{__strip} %{__objdump} ; \
     /usr/lib/rpm/brp-python-bytecompile ; \
     %{nil}
+
 %endif
 
+%if %{?_with_amazon:1}%{!?_with_amazon:0}
+%define __os_install_post \
+    /usr/lib/rpm/amazon/brp-compress ; \
+    /usr/lib/rpm/amazon/brp-strip-static-archive %{__strip} ; \
+    /usr/lib/rpm/amazon/brp-strip-comment-note %{__strip} %{__objdump} ; \
+    /usr/lib/rpm/brp-python-bytecompile ; \
+    %{nil}
+
+%endif
 
 %define doc_hbase %{_docdir}/%{name}-%{hbase_version}
 %global initd_dir %{_sysconfdir}/rc.d/init.d
@@ -78,7 +92,7 @@
 Name: hbase
 Version: %{hbase_version}
 Release: %{hbase_release}
-Summary: HBase is the Hadoop database. Use it when you need random, realtime read/write access to your Big Data. This project's goal is the hosting of very large tables -- billions of rows X millions of columns -- atop clusters of commodity hardware. 
+Summary: HBase is the Hadoop database. Use it when you need random, realtime read/write access to your Big Data. This project's goal is the hosting of very large tables -- billions of rows X millions of columns -- atop clusters of commodity hardware.
 URL: http://hbase.apache.org/
 Group: Development/Libraries
 Buildroot: %{_topdir}/INSTALL/%{name}-%{version}
@@ -102,7 +116,7 @@ Requires: sh-utils
 %endif
 
 
-%description 
+%description
 HBase is an open-source, distributed, column-oriented store modeled after Google' Bigtable: A Distributed Storage System for Structured Data by Chang et al. Just as Bigtable leverages the distributed data storage provided by the Google File System, HBase provides Bigtable-like capabilities on top of Hadoop. HBase includes:
 
     * Convenient base classes for backing Hadoop MapReduce jobs with HBase tables
@@ -164,7 +178,7 @@ Requires: redhat-lsb
 %endif
 
 
-%description regionserver 
+%description regionserver
 HRegionServer makes a set of HRegions available to clients. It checks in with the HMaster. There are many HRegionServers in a single HBase deployment.
 
 %package thrift
@@ -328,7 +342,7 @@ fi
 #######################
 #### FILES SECTION ####
 #######################
-%files 
+%files
 %defattr(-,hbase,hbase)
 %{logs_hbase}
 %{pids_hbase}

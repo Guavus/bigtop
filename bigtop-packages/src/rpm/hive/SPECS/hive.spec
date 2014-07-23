@@ -221,7 +221,7 @@ Requires: initscripts
 # So I will suppose anything that is not Mageia or a SUSE will be a RHEL/CentOS/Fedora
 %if %{!?suse_version:1}0 && %{!?mgaversion:1}0
 
-%if "%{_with_redhat}" == "1"
+%if %{!?_with_redhat:1}0 && %{!?_with_redhat:1}0
 %define __os_install_post \
     /usr/lib/rpm/redhat/brp-compress ; \
     /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
@@ -231,7 +231,7 @@ Requires: initscripts
 
 %endif
 
-%if "%{_with_amazon}" == "1"
+%if %{!?_with_amazon:1}0 && %{!?_with_amazon:1}0
 %define __os_install_post \
     /usr/lib/rpm/amazon/brp-compress ; \
     /usr/lib/rpm/amazon/brp-strip-static-archive %{__strip} ; \

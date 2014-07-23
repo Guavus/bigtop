@@ -139,7 +139,7 @@ for comp in core repl bagel mllib streaming assembly; do
 done
 ## FIXME: Spark maven assembly needs to include examples into it.
 install -d -m 0755 $PREFIX/$LIB_DIR/examples/lib
-cp ${BUILD_DIR}/examples/target/spark-examples*${SPARK_VERSION}.jar $PREFIX/$LIB_DIR/examples/lib
+cp ${BUILD_DIR}/examples/target/spark-examples*${SPARK_VERSION}*.jar $PREFIX/$LIB_DIR/examples/lib
 
 cp -a ${BUILD_DIR}/bin/*.sh $PREFIX/$LIB_DIR/bin/
 cp -a ${BUILD_DIR}/sbin/*.sh $PREFIX/$LIB_DIR/sbin/

@@ -66,8 +66,8 @@
 %define static_images_dir src/webapps/static/images
 %define libexecdir /usr/lib
 
-%define _with_redhat $([ -d /usr/lib/rpm/redhat ] && echo "1")
-%define _with_amazon $([ -d /usr/lib/rpm/amazon ] && echo "1")
+%define _with_redhat $([ -d /usr/lib/rpm/redhat ] && echo 1)
+%define _with_amazon $([ -d /usr/lib/rpm/amazon ] && echo 1)
 
 %ifarch i386
 %global hadoop_arch Linux-i386-32
@@ -85,7 +85,7 @@
 # and make whole process to fail.
 # So for now brp-repack-jars is being deactivated until this is fixed.
 # See BIGTOP-294
-%if %{!?_with_redhat:1}0 && %{!?_with_redhat:1}0
+%if %{!?_with_redhat:1}0
 %define __os_install_post \
     /usr/lib/rpm/redhat/brp-compress ; \
     /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
@@ -94,7 +94,7 @@
     %{nil}
 %endif
 
-%if %{!?_with_amazon:1}0 && %{!?_with_amazon:1}0
+%if %{!?_with_amazon:1}0
 %define __os_install_post \
     /usr/lib/rpm/amazon/brp-compress ; \
     /usr/lib/rpm/amazon/brp-strip-static-archive %{__strip} ; \

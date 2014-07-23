@@ -62,7 +62,7 @@
 # and make whole process to fail.
 # So for now brp-repack-jars is being deactivated until this is fixed.
 # See BIGTOP-294
-%if "%{_with_redhat}" == "1"
+%if %{!?_with_redhat:1}0 && %{!?_with_redhat:1}0
 %define __os_install_post \
     /usr/lib/rpm/redhat/brp-compress ; \
     /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
@@ -72,7 +72,7 @@
 
 %endif
 
-%if "%{_with_amazon}" == "1"
+%if %{!?_with_amazon:1}0 && %{!?_with_amazon:1}0
 %define __os_install_post \
     /usr/lib/rpm/amazon/brp-compress ; \
     /usr/lib/rpm/amazon/brp-strip-static-archive %{__strip} ; \

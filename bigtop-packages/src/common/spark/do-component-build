@@ -34,4 +34,4 @@ BUILD_OPTS="-Divy.home=${HOME}/.ivy2 -Dsbt.ivy.home=${HOME}/.ivy2 -Duser.home=${
 #        http://maven.40175.n5.nabble.com/Not-finding-artifact-in-local-repo-td3727753.html
 export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m -XX:PermSize=1024m -XX:MaxPermSize=1024m"
 
-mvn -Pbigtop-dist -Pyarn,hive,hive-0.13.1,hadoop-provided $BUILD_OPTS install
+mvn -Pbigtop-dist -Pyarn,hive,hive-0.12.0,hadoop-provided $BUILD_OPTS install

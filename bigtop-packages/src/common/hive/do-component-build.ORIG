@@ -32,7 +32,7 @@ HIVE_MAVEN_OPTS=" -Dhbase.version=$HBASE_VERSION \
 "
 
 export MAVEN_OPTS="-Xmx1500m -Xms1500m -XX:MaxPermSize=256m"
-mvn -DskipTests clean install -Phadoop-2,dist "$@"
+mvn ${HIVE_MAVEN_OPTS} clean install -Phadoop-2,dist "$@"
 
 mkdir -p build/dist
 tar -C build/dist --strip-components=1 -xzf packaging/target/apache-hive-${HIVE_VERSION}-bin.tar.gz

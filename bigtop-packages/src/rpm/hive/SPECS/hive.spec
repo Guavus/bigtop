@@ -82,7 +82,6 @@ Source15: hive-webhcat-server.svc
 Source16: hive-hcatalog-server.default
 Source17: hive-webhcat-server.default
 Source18: bigtop.bom
-#BIGTOP_PATCH_FILES
 Requires: hadoop-client, bigtop-utils >= 0.7, zookeeper, hive-jdbc = %{version}-%{release}
 Conflicts: hadoop-hive
 Obsoletes: %{name}-webinterface
@@ -229,8 +228,6 @@ Init scripts for WebHcat server.
 
 %prep
 %setup -q -n apache-%{name}-%{hive_base_version}-src
-
-#BIGTOP_PATCH_COMMANDS
 
 %build
 bash %{SOURCE1}

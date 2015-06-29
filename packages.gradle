@@ -43,6 +43,8 @@ final String BOM = "$rootDir/bigtop.mk"
 def BOM_map = [
     APACHE_MIRROR:  "http://apache.osuosl.org",
     APACHE_ARCHIVE: "http://archive.apache.org/dist",
+    GUAVUS_MIRROR:  "http://devops-build-01.neura-local.com",
+    GUAVUS_ARCHIVE: "http://devops-build-01.neura-local.com/archive",
     BASE_DIR:       projectDir.absolutePath,
     BUILD_DIR:      projectDir.absolutePath + "/build",
     OUTPUT_DIR:     projectDir.absolutePath + "/output",

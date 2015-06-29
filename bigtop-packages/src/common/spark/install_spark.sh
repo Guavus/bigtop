@@ -140,7 +140,7 @@ tar --wildcards -C $PREFIX/$LIB_DIR/ -zxf ${BUILD_DIR}/assembly/target/spark-ass
 rm -rf $PREFIX/$LIB_DIR/bin/*.cmd
 
 # Examples jar
-cp ${BUILD_DIR}/examples/target/spark-examples*${SPARK_VERSION}.jar $PREFIX/$LIB_DIR/lib/spark-examples-${SPARK_VERSION}-hadoop${HADOOP_VERSION}.jar
+cp ${BUILD_DIR}/examples/target/spark-examples*${SPARK_VERSION}*.jar $PREFIX/$LIB_DIR/lib/spark-examples-${SPARK_VERSION}-hadoop${HADOOP_VERSION}.jar
 
 # Examples src
 cp -ra ${BUILD_DIR}/examples/src $PREFIX/$EXAMPLES_DIR/

@@ -258,7 +258,7 @@ def genTasks = { target, variable ->
     }
     def final PKG_NAME = BOM_map[variable + '_PKG_NAME']
     def final PKG_RELEASE = BOM_map[variable + '_PKG_RELEASE']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
+    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION'].replaceAll("-", "_")
     def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
     def final BASE_VERSION = BOM_map[variable + '_BASE_VERSION']
     def final SRCDEB = "${PKG_NAME}_$PKG_VERSION-${BIGTOP_BUILD_STAMP}.dsc"
@@ -308,7 +308,7 @@ def genTasks = { target, variable ->
     def final NAME = BOM_map[variable + '_NAME']
     def final PKG_NAME = BOM_map[variable + '_PKG_NAME']
     def final SEED_TAR = BOM_map[variable + '_SEED_TAR']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
+    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION'].replaceAll("-", "_")
     def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
     delete ("$PKG_BUILD_DIR/deb")
     def final DEB_BLD_DIR = "$PKG_BUILD_DIR/deb/$NAME-${PKG_VERSION}"
@@ -377,7 +377,7 @@ def genTasks = { target, variable ->
     }
     def final PKG_NAME = BOM_map[variable + '_NAME']
     def final PKG_RELEASE = BOM_map[variable + '_PKG_RELEASE']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
+    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']..replaceAll("-", "_")
     def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
     mkdir("$OUTPUT_DIR/apt/conf")
     copy {
@@ -407,7 +407,7 @@ def genTasks = { target, variable ->
     def final NAME = BOM_map[variable + '_NAME']
     def final PKG_NAME = BOM_map[variable + '_PKG_NAME']
     def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
+    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION'].replaceAll("-", "_")
     def final BASE_VERSION = BOM_map[variable + '_BASE_VERSION']
     def RELEASE_DIST = "rpmbuild --eval '%{?dist}' 2>/dev/null".execute().text.trim().replaceAll("'",'')
     def SRCRPM="$PKG_OUTPUT_DIR/$PKG_NAME-${PKG_VERSION}-$BIGTOP_BUILD_STAMP${RELEASE_DIST}.src.rpm"
@@ -444,7 +444,7 @@ def genTasks = { target, variable ->
     def final PKG_NAME_FOR_PKG = BOM_map[variable + '_NAME'].replaceAll("-", "_")
     def final PKG_BUILD_DIR = BOM_map[variable + '_BUILD_DIR']
     def final SEED_TAR = BOM_map[variable + '_SEED_TAR']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
+    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION'].replaceAll("-", "_")
     def final BASE_VERSION = BOM_map[variable + '_BASE_VERSION']
     def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
     delete ("$PKG_BUILD_DIR/rpm")

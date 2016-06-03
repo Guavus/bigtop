@@ -32,38 +32,33 @@ buildscript {
 
 apply plugin: 'java'
 apply plugin: 'groovy'
-apply plugin: 'download-task'
 
 def PACKAGES_GROUP = 'package'
 
 final String VERBOSE = "verbose"
-final String BOM = "$rootDir/bigtop.mk"
+final String DEPS_BUILD = "buildwithdeps"
+final boolean buildDependencies = false || System.getProperty(DEPS_BUILD) == 'true'
+final String BOM = System.getProperty('bomfile') ?: "$rootDir/bigtop.bom"
+def final config  = new ConfigSlurper().parse(new URL("file:$BOM"))
 
-//HashMap <String, String>
-def BOM_map = [
-    APACHE_MIRROR:  "http://apache.osuosl.org",
-    APACHE_ARCHIVE: "http://archive.apache.org/dist",
-    BASE_DIR:       projectDir.absolutePath,
-    BUILD_DIR:      projectDir.absolutePath + "/build",
-    OUTPUT_DIR:     projectDir.absolutePath + "/output",
-    DIST_DIR:       projectDir.absolutePath + "/dist",
-    DL_DIR:         projectDir.absolutePath + "/dl",
-    BIGTOP_BOM:     '',
-    BIGTOP_BUILD_STAMP: 1
-]
+config.bigtop.builddir = projectDir.absolutePath + "/build"
+config.bigtop.outputdir = projectDir.absolutePath + "/output"
+config.bigtop.distdir = projectDir.absolutePath + "/dist"
+config.bigtop.dldir = projectDir.absolutePath + "/dl"
+config.bigtop.buildstamp = 1
 
-def final BIGTOP_BOM = 'BIGTOP_BOM'
+def bomVersions = []
 
-def final BASE_DIR = BOM_map['BASE_DIR']
-def final REPO_DIR = "${BOM_map['BASE_DIR']}/bigtop-repos"
-def final BUILD_DIR = BOM_map['BUILD_DIR']
-def final OUTPUT_DIR = BOM_map['OUTPUT_DIR']
-def final DIST_DIR = BOM_map['DIST_DIR']
-def final DL_DIR = BOM_map['DL_DIR']
-def final BIGTOP_BUILD_STAMP = System.getenv('BIGTOP_BUILD_STAMP') ?: BOM_map['BIGTOP_BUILD_STAMP']
+def final BASE_DIR = projectDir.absolutePath
+def final REPO_DIR = "$BASE_DIR/bigtop-repos"
+def final BUILD_DIR = config.bigtop.builddir
+def final OUTPUT_DIR = config.bigtop.outputdir
+def final DIST_DIR = config.bigtop.distdir
+def final DL_DIR = config.bigtop.dldir
+def final BIGTOP_BUILD_STAMP = System.getenv('BIGTOP_BUILD_STAMP') ?: config.bigtop.buildstamp
 
-def targets = []
-def components = []
+// List of tasks derived from the BOM file is used to preserve the natural order
+def bomTasks = []
 
 // Package building and logic around it
 
@@ -76,10 +71,30 @@ def ifExists = { url ->
   URLConnection uCon = new URL(url).openConnection()
   return (uCon as HttpURLConnection).responseCode == 200
 }
+def safeDelete = { fileName ->
+  exec {
+    workingDir '.'
+    commandLine 'rm', '-rf', fileName
+  }
+}
 def getDate() {
   new Date().format('E, dd MMM yyyy HH:mm:ss Z')
 }
-
+/**
+ * To avoid breaking the compat with existing packages let's use the old style names
+ */
+def toOldStyleName = { newname ->
+  newname.toUpperCase().replaceAll("\\-", "_")
+}
+def setDefaults = { comp ->
+  // The closure parameter is a component in the config.bigtop.components
+  if (!comp.pkg) {
+    comp.pkg = comp.name
+  }
+  if (!comp.version.pkg) {
+    comp.version.pkg = comp.version.base
+  }
+}
 def nativePackaging = {
   def devNull = new org.apache.bigtop.NullOutputStream()
   def result = exec {
@@ -92,45 +107,59 @@ def nativePackaging = {
     errorOutput devNull
     standardOutput devNull
   }
-  [false, "deb", "rpm"][result.getExitValue()]
+  [false, [pkg:"deb", repo:"apt"], [pkg:"rpm", repo:"yum"]][result.getExitValue()]
 }.call()
 
+def generateDistributionsFile = { file ->
+  def writer = new File(file);
+  writer.text ="""Origin: Bigtop
+Label: Bigtop
+Suite: stable
+Codename: bigtop
+Version: ${config.bigtop.version}
+Architectures: amd64 ppc64el source
+Components: contrib
+Description: Bigtop
+""";
+}
+
 task "packages-help" (description: "All package build related tasks information", group: PACKAGES_GROUP) << {
-  targets.each { target ->
-    println (target + "\n\t[" + tasks.findAll { alltask -> alltask.name.startsWith(target)}*.name.join(", ") + "]")
+  config.bigtop.components.each { label, comp ->
+    println (comp.name + "\n\t[" + tasks.findAll { alltask -> alltask.name.startsWith(comp.name)}*.name.join(", ") + "]")
   }
 }
 
 task "bom-json" (description: "List the components of the stack in json format") << {
-  def componentObjects = components.sort().collect {
+  def componentObjects = config.bigtop.components.sort().collect {
+    setDefaults(it.value)
     [
       name: [
-        project: BOM_map[it + '_NAME'],
-        pkg: BOM_map[it + '_PKG_NAME'],
-        relNotes: BOM_map[it + '_RELNOTES_NAME'],
+        project: it.value.name,
+        pkg: it.value.pkg,
+        relNotes: it.value.relNotes,
       ],
       tarball: [
-        destination: BOM_map[it + '_TARBALL_DST'],
-        source: BOM_map[it + '_TARBALL_SRC'],
+        destination: it.value.tarball.destination,
+        source: it.value.tarball.source,
       ],
       url: [
-        site: BOM_map[it + '_SITE'],
-        archive: BOM_map[it + '_ARCHIVE'],
+        site: it.value.url.site,
+        archive: it.value.url.archive,
       ],
       version: [
-        base: BOM_map[it + '_BASE_VERSION'],
-        pkg: BOM_map[it + '_PKG_VERSION'],
-        release: BOM_map[it + '_RELEASE_VERSION'],
+        base: it.value.version.base,
+        pkg: it.value.version.pkg,
+        release: it.value.version.release,
       ],
       git: [
-         repo: BOM_map[it + '_GIT_REPO'],
-         ref: BOM_map[it + '_GIT_REF'],
-         dir: BOM_map[it + '_GIT_DIR'],
+         repo: it.value.git.repo,
+         ref: it.value.git.ref,
+         dir: it.value.git.dir,
       ]
     ]
   }
   def fullDefinition = [
-    version: BOM_map['BIGTOP_VERSION'],
+    version: config.bigtop.version,
     components: componentObjects
   ]
   def json = JsonOutput.toJson(fullDefinition)
@@ -138,30 +167,30 @@ task "bom-json" (description: "List the components of the stack in json format")
 }
 
 task "all-components" (description: "List the components of the stack") << {
-  println "${project.name} ${BOM_map['BIGTOP_VERSION']} stack includes the following components"
-  components.sort().each { comp ->
-    println sprintf ('\t%1$s %2$s', comp.toLowerCase().padRight(20), BOM_map[comp + "_BASE_VERSION"].padLeft(10))
+  println "${project.name} ${config.bigtop.version} stack includes the following components"
+  config.bigtop.components.sort().each { label, comp ->
+    println sprintf ('\t%1$s %2$s', comp.name.padRight(20), comp.version.base.padLeft(15))
   }
 }
 
-def genTasks = { target, variable ->
+def genTasks = { target ->
   Task t = task "${target}-download" (dependsOn: "${target}_vardefines",
       description: "Download $target artifacts",
       group: PACKAGES_GROUP) << {
 
-    def final TARBALL_SRC = BOM_map[variable + '_TARBALL_SRC']
-    def final DOWNLOAD_DST = BOM_map[variable + '_DOWNLOAD_DST']
-    def final DOWNLOAD_URL = BOM_map[variable + '_DOWNLOAD_URL']
+    def final TARBALL_SRC = config.bigtop.components[target].tarball.source
+    def final DOWNLOAD_DST = config.bigtop.components[target].downloaddst
+    def final DOWNLOAD_URL = config.bigtop.components[target].downloadurl
 
-    def final GIT_REPO = BOM_map[variable + '_GIT_REPO']
-    def final GIT_REF = BOM_map[variable + '_GIT_REF']
-    def final GIT_DIR = BOM_map[variable + '_GIT_DIR']
+    def final GIT_REPO = config.bigtop.components[target].git.repo
+    def final GIT_REF = config.bigtop.components[target].git.ref
+    def final GIT_DIR = config.bigtop.components[target].git.dir
 
     if (!DOWNLOAD_DST)
       return
 
     mkdir(DL_DIR)
-    if (TARBALL_SRC?.isEmpty() || new File(DOWNLOAD_DST)?.exists() || new File(BOM_map[variable + '_TARGET_DL'])?.exists()) {
+    if (TARBALL_SRC?.isEmpty() || new File(DOWNLOAD_DST)?.exists() || new File(config.bigtop.components[target].targetdl)?.exists()) {
       println "\tFile $DOWNLOAD_DST appears to be already downloaded. Exiting..."
       return
     }
@@ -189,24 +218,24 @@ def genTasks = { target, variable ->
         dest DOWNLOAD_DST
       }
     }
-    touchTargetFile(BOM_map[variable + '_TARGET_DL'])
+    touchTargetFile(config.bigtop.components[target].targetdl)
   }
   task "${target}-tar" (dependsOn: ["${target}_vardefines", "${target}-download"],
       description: "Preparing a tarball for $target artifacts",
       group: PACKAGES_GROUP) << {
-    if (new File(BOM_map[variable + '_TARGET_TAR'])?.exists()) {
+    if (new File(config.bigtop.components[target].targettar)?.exists()) {
       println "\tNothing to do. Exiting..."
       return
     }
-    def final TAR_DIR = BOM_map[variable + '_TAR_DIR']
-    def final TARBALL_SRC = BOM_map[variable + '_TARBALL_SRC'] ?: ""
-    def final DOWNLOAD_DST = BOM_map[variable + '_DOWNLOAD_DST'] ?: ""
-    def final SEED_TAR = BOM_map[variable + '_SEED_TAR']
+    def final TAR_DIR = config.bigtop.components[target].tardir
+    def final TARBALL_SRC = config.bigtop.components[target].tarball.source ?: ""
+    def final DOWNLOAD_DST = config.bigtop.components[target].downloaddst ?: ""
+    def final SEED_TAR = config.bigtop.components[target].seedtar
 
-    delete(TAR_DIR); mkdir(TAR_DIR)
+    safeDelete(TAR_DIR); mkdir(TAR_DIR)
 
-    if (TARBALL_SRC.empty || TARBALL_SRC.endsWith('.zip')) {
-      if (TARBALL_SRC.empty) {
+    if (TARBALL_SRC.isEmpty() || TARBALL_SRC.endsWith('.zip')) {
+      if (TARBALL_SRC.isEmpty()) {
         // if no tar file needed (i.e. bigtop-utils)
         // create some contents to pack later
         copy {
@@ -227,7 +256,7 @@ def genTasks = { target, variable ->
             (f != "." && f != "..")}).each { f ->
               new File("$TAR_DIR/$TOP_LEVEL_DIR/$f").renameTo("$TAR_DIR/$f")
           }
-          delete(TOP_LEVEL_DIR)
+          safeDelete(TOP_LEVEL_DIR)
         }
       }
       // create SEED_TAR
@@ -239,27 +268,27 @@ def genTasks = { target, variable ->
       println "Copy $DOWNLOAD_DST to $SEED_TAR"
       copy {
         from DOWNLOAD_DST
-        into BOM_map['BUILD_DIR'] + "/$target/tar/"
+        into config.bigtop.builddir + "/$target/tar/"
         rename TARBALL_SRC, SEED_TAR
       }
     }
-    touchTargetFile(BOM_map[variable + '_TARGET_TAR'])
+    touchTargetFile(config.bigtop.components[target].targettar)
   }
 
   // Keeping the reference to deb task to be used later for correct sequencing
   Task tdeb = task "$target-deb"(dependsOn: "${target}-sdeb",
       description: "Building DEB for $target artifacts",
       group: PACKAGES_GROUP) << {
-    if (new File(BOM_map[variable + '_TARGET_DEB'])?.exists()) {
+    if (new File(config.bigtop.components[target].targetdeb)?.exists()) {
       println "\tNothing to do. Exiting..."
       return
     }
-    def final PKG_NAME = BOM_map[variable + '_PKG_NAME']
-    def final PKG_RELEASE = BOM_map[variable + '_PKG_RELEASE']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
-    def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
-    def final BASE_VERSION = BOM_map[variable + '_BASE_VERSION']
+    def final PKG_NAME = config.bigtop.components[target].pkg
+    def final PKG_VERSION = config.bigtop.components[target].version.pkg
+    def final PKG_OUTPUT_DIR = config.bigtop.components[target].outputdir
+    def final BASE_VERSION = config.bigtop.components[target].version.base
     def final SRCDEB = "${PKG_NAME}_$PKG_VERSION-${BIGTOP_BUILD_STAMP}.dsc"
+    def final HADOOP_VERSION = config.bigtop.components["hadoop"].version.pkg
 
     exec {
       workingDir PKG_OUTPUT_DIR
@@ -269,16 +298,13 @@ def genTasks = { target, variable ->
 // than in an array of args
     def command = """debuild \
 --preserve-envvar PATH \
---preserve-envvar JAVA32_HOME \
---preserve-envvar JAVA64_HOME \
---preserve-envvar FORREST_HOME \
 --preserve-envvar MAVEN3_HOME \
 --preserve-envvar MAVEN_OPTS \
 --preserve-envvar JAVA_HOME \
---preserve-envvar SCALA_HOME \
---set-envvar=${variable}_BASE_VERSION=$BASE_VERSION \
---set-envvar=${variable}_VERSION=$PKG_VERSION \
---set-envvar=${variable}_RELEASE=$BIGTOP_BUILD_STAMP \
+--set-envvar=HADOOP_VERSION=$HADOOP_VERSION \
+--set-envvar=${toOldStyleName(target)}_BASE_VERSION=$BASE_VERSION \
+--set-envvar=${toOldStyleName(target)}_VERSION=$PKG_VERSION \
+--set-envvar=${toOldStyleName(target)}_RELEASE=$BIGTOP_BUILD_STAMP \
 -uc -us -b
 """
     exec {
@@ -289,25 +315,31 @@ def genTasks = { target, variable ->
       workingDir "$PKG_OUTPUT_DIR"
       commandLine 'rm','-rf',"$PKG_NAME-$PKG_VERSION"
     }
-    touchTargetFile(BOM_map[variable + '_TARGET_DEB'])
+    touchTargetFile(config.bigtop.components[target].targetdeb)
   }
-  // Guarantee that tasks are ran in the order set by BOM file
-  if (targets.size() > 0)
-    tdeb.mustRunAfter "${targets.get(targets.size() - 1)}-deb"
+  // Guarantee that tasks are ran in the order set by BOM file dependencies section
+  if (buildDependencies)
+    config.bigtop.dependencies.each { dependsOn, dependees ->
+      if (dependees.contains(tdeb.name-"-deb")) tdeb.dependsOn "$dependsOn-deb"
+    }
+  // If dependencies aren't explicitly set, the default build order is defined
+  // by the sequence of the components in the BOM file
+  if (!config.bigtop.dependencies && bomTasks.size() > 0)
+    tdeb.mustRunAfter "${bomTasks.get(bomTasks.size() - 1)}-deb".toLowerCase()
    task "$target-sdeb" (dependsOn: ["${target}_vardefines",  "${target}-tar"],
       description: "Building SDEB for $target artifacts",
       group: PACKAGES_GROUP
   ) << {
-    if (new File(BOM_map[variable + '_TARGET_SDEB'])?.exists()) {
+    if (new File(config.bigtop.components[target].targetsdeb)?.exists()) {
       println "\tNothing to do. Exiting..."
       return
     }
-    def final PKG_BUILD_DIR = BOM_map[variable + '_BUILD_DIR']
-    def final NAME = BOM_map[variable + '_NAME']
-    def final PKG_NAME = BOM_map[variable + '_PKG_NAME']
-    def final SEED_TAR = BOM_map[variable + '_SEED_TAR']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
-    def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
+    def final PKG_BUILD_DIR = config.bigtop.components[target].builddir
+    def final NAME = config.bigtop.components[target].name
+    def final PKG_NAME = config.bigtop.components[target].pkg
+    def final SEED_TAR = config.bigtop.components[target].seedtar
+    def final PKG_VERSION = config.bigtop.components[target].version.pkg
+    def final PKG_OUTPUT_DIR = config.bigtop.components[target].outputdir
     delete ("$PKG_BUILD_DIR/deb")
     def final DEB_BLD_DIR = "$PKG_BUILD_DIR/deb/$NAME-${PKG_VERSION}"
     def final DEB_PKG_DIR = "$PKG_BUILD_DIR/deb/$PKG_NAME-${PKG_VERSION}-${BIGTOP_BUILD_STAMP}"
@@ -315,7 +347,7 @@ def genTasks = { target, variable ->
     copy {
       from SEED_TAR
       into "$PKG_BUILD_DIR/deb/"
-      rename BOM_map[variable + '_TARBALL_DST'], "${PKG_NAME}_${PKG_VERSION}.orig.tar.gz"
+      rename config.bigtop.components[target].tarball.destination, "${PKG_NAME}_${PKG_VERSION}.orig.tar.gz"
     }
     exec {
       workingDir DEB_BLD_DIR
@@ -333,7 +365,7 @@ def genTasks = { target, variable ->
     }.copy { into "$DEB_BLD_DIR/debian" }
     // Prepeare bom file with all the versions
     def bomWriter = new File("$DEB_BLD_DIR/debian/bigtop.bom").newWriter()
-    BOM_map[BIGTOP_BOM].split(" ").each { bomWriter << "$it\n"}
+    bomVersions.each { bomWriter << "$it\n"}
     bomWriter.close()
     // Create changelog
     def changelog = new File("$DEB_BLD_DIR/debian/changelog").newWriter()
@@ -364,55 +396,32 @@ def genTasks = { target, variable ->
     fileTree (dir: "$DEB_PKG_DIR/..", includes: ['*.dsc', '*.diff.gz', '*.debian.tar.gz', '*.debian.tar.xz', "*_source.changes", "*.orig.tar.gz" ]).copy {
       into PKG_OUTPUT_DIR
     }
-    touchTargetFile(BOM_map[variable + '_TARGET_SDEB'])
-  }
-  task "$target-apt" (dependsOn: "$target-deb",
-      description: "Creating APT repository for $target packages",
-      group: PACKAGES_GROUP) << {
-    if (new File(BOM_map[variable + '_TARGET_APT'])?.exists()) {
-      println "\tNothing to do. Exiting..."
-      return
-    }
-    def final PKG_NAME = BOM_map[variable + '_NAME']
-    def final PKG_RELEASE = BOM_map[variable + '_PKG_RELEASE']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
-    def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
-    mkdir("$OUTPUT_DIR/apt/conf")
-    copy {
-      from "$REPO_DIR/apt/distributions"
-      into "$OUTPUT_DIR/apt/conf"
-    }
-    fileTree (PKG_OUTPUT_DIR) {
-      include "*.changes"
-    }.each  { changeFile ->
-      exec {
-        workingDir BUILD_DIR
-        commandLine "reprepro -Vb $OUTPUT_DIR/apt include bigtop $changeFile".split(' ')
-      }
-    }
-    touchTargetFile(BOM_map["${variable}_TARGET_APT"])
+    safeDelete(DEB_BLD_DIR)
+    touchTargetFile(config.bigtop.components[target].targetsdeb)
   }
 
   // Keeping the reference to task to be used later for correct sequencing
   Task trpm = task "$target-rpm" (dependsOn: ["${target}-srpm"],
       description: "Building RPM for $target artifacts",
       group: PACKAGES_GROUP) << {
-    if (new File(BOM_map[variable + '_TARGET_RPM'])?.exists()) {
+    if (new File(config.bigtop.components[target].targetrpm)?.exists()) {
       println "\tNothing to do. Exiting..."
       return
     }
-    def final PKG_BUILD_DIR = BOM_map[variable + '_BUILD_DIR']
-    def final NAME = BOM_map[variable + '_NAME']
-    def final PKG_NAME = BOM_map[variable + '_PKG_NAME']
-    def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
-    def final BASE_VERSION = BOM_map[variable + '_BASE_VERSION']
+    def final PKG_BUILD_DIR = config.bigtop.components[target].builddir
+    def final NAME = config.bigtop.components[target].name
+    def final PKG_NAME = config.bigtop.components[target].pkg
+    def final PKG_OUTPUT_DIR = config.bigtop.components[target].outputdir
+    def final PKG_VERSION = config.bigtop.components[target].version.pkg
+    def final BASE_VERSION = config.bigtop.components[target].version.base
+    def final HADOOP_VERSION = config.bigtop.components["hadoop"].version.pkg
     def RELEASE_DIST = "rpmbuild --eval '%{?dist}' 2>/dev/null".execute().text.trim().replaceAll("'",'')
     def SRCRPM="$PKG_OUTPUT_DIR/$PKG_NAME-${PKG_VERSION}-$BIGTOP_BUILD_STAMP${RELEASE_DIST}.src.rpm"
 
     def command = [
         '--define', "_topdir $PKG_BUILD_DIR/rpm/",
         '--define', "${NAME}_base_version $BASE_VERSION",
+        '--define', "hadoop_version ${HADOOP_VERSION}",
         '--define', "${NAME}_version ${PKG_VERSION}",
         '--define', "${NAME}_release ${BIGTOP_BUILD_STAMP}%{?dist}",
         '--rebuild', SRCRPM,
@@ -425,27 +434,33 @@ def genTasks = { target, variable ->
     fileTree ("$PKG_BUILD_DIR/rpm/RPMS") {
       include '**/*'
     }.copy { into PKG_OUTPUT_DIR }
-    touchTargetFile(BOM_map[variable + '_TARGET_RPM'])
+    touchTargetFile(config.bigtop.components[target].targetrpm)
   }
-  // Guarantee that tasks are ran in the order set by BOM file
-  if (targets.size() > 0)
-    trpm.mustRunAfter "${targets.get(targets.size() - 1)}-rpm"
+  // Guarantee that tasks are ran in the order set by BOM file dependencies section
+  if (buildDependencies)
+    config.bigtop.dependencies.each { dependsOn, dependees ->
+      if (dependees.contains(trpm.name - "-rpm")) trpm.dependsOn "$dependsOn-rpm"
+    }
+  // If dependencies aren't explicitly set, the default build order is defined
+  // by the sequence of the components in the BOM file
+  if (!config.bigtop.dependencies && bomTasks.size() > 0)
+    trpm.mustRunAfter "${bomTasks.get(bomTasks.size() - 1)}-rpm".toLowerCase()
   task "$target-srpm" (dependsOn: ["${target}_vardefines" , "${target}-tar"],
       description: "Building SRPM for $target artifacts",
       group: PACKAGES_GROUP) << {
-    if (new File(BOM_map[variable + '_TARGET_SRPM'])?.exists()) {
+    if (new File(config.bigtop.components[target].targetsrpm)?.exists()) {
       println "\tNothing to do. Exiting..."
       return
     }
-    def final NAME = BOM_map[variable + '_NAME']
-    def final PKG_NAME = BOM_map[variable + '_PKG_NAME']
-    def final PKG_NAME_FOR_PKG = BOM_map[variable + '_NAME'].replaceAll("-", "_")
-    def final PKG_BUILD_DIR = BOM_map[variable + '_BUILD_DIR']
-    def final SEED_TAR = BOM_map[variable + '_SEED_TAR']
-    def final PKG_VERSION = BOM_map[variable + '_PKG_VERSION']
-    def final BASE_VERSION = BOM_map[variable + '_BASE_VERSION']
-    def final PKG_OUTPUT_DIR = BOM_map[variable + '_OUTPUT_DIR']
-    delete ("$PKG_BUILD_DIR/rpm")
+    def final NAME = config.bigtop.components[target].name
+    def final PKG_NAME = config.bigtop.components[target].pkg
+    def final PKG_NAME_FOR_PKG = NAME.replaceAll("-", "_")
+    def final PKG_BUILD_DIR = config.bigtop.components[target].builddir
+    def final SEED_TAR = config.bigtop.components[target].seedtar
+    def final PKG_VERSION = config.bigtop.components[target].version.pkg
+    def final BASE_VERSION = config.bigtop.components[target].version.base
+    def final PKG_OUTPUT_DIR = config.bigtop.components[target].outputdir
+    safeDelete ("$PKG_BUILD_DIR/rpm")
     ['INSTALL','SOURCES','BUILD','SRPMS','RPMS'].each { rpmdir ->
       mkdir("$PKG_BUILD_DIR/rpm/$rpmdir")
     }
@@ -465,7 +480,7 @@ def genTasks = { target, variable ->
     }.copy { into "$PKG_BUILD_DIR/rpm/SOURCES" }
     // Writing bigtop.bom files with all the versions
     def bomWriter = new File("$PKG_BUILD_DIR/rpm/SOURCES/bigtop.bom").newWriter()
-    BOM_map[BIGTOP_BOM].split(" ").each { bomWriter << "$it\n"}
+    bomVersions.each { bomWriter << "$it\n"}
     bomWriter.close()
 
     def specFileName = "${PKG_BUILD_DIR}/rpm/SPECS/${NAME}.spec"
@@ -515,71 +530,58 @@ def genTasks = { target, variable ->
       from "$PKG_BUILD_DIR/rpm/SRPMS/${PKG_NAME}-${PKG_VERSION}-${BIGTOP_BUILD_STAMP}${RELEASE_DIST}.src.rpm"
       into PKG_OUTPUT_DIR
     }
-    touchTargetFile(BOM_map[variable + '_TARGET_SRPM'])
+    touchTargetFile(config.bigtop.components[target].targetsrpm)
   }
   if (nativePackaging) {
-    task "$target-pkg" (dependsOn: "$target-$nativePackaging",
-        description: "Invoking a native binary packaging target $nativePackaging",
+    def ptype = nativePackaging.pkg
+    task "$target-pkg" (dependsOn: "$target-$ptype",
+        description: "Invoking a native binary packaging target $ptype",
         group: PACKAGES_GROUP) << {
     }
-    task "$target-spkg" (dependsOn: "$target-s$nativePackaging",
-        description: "Invoking a native binary packaging target s$nativePackaging",
+    task "$target-spkg" (dependsOn: "$target-s$ptype",
+        description: "Invoking a native binary packaging target s$ptype",
         group: PACKAGES_GROUP) << {
     }
-  }
-  task "$target-yum" (dependsOn: "$target-rpm",
-      description: "Creating YUM repository for $target packages",
-      group: PACKAGES_GROUP) << {
-    if (new File(BOM_map[variable + '_TARGET_YUM'])?.exists()) {
-      println "\tNothing to do. Exiting..."
-      return
-    }
-    exec {
-      workingDir BUILD_DIR
-      commandLine "createrepo -o $OUTPUT_DIR $OUTPUT_DIR".split(' ')
-    }
-    touchTargetFile(BOM_map["${variable}_TARGET_YUM"])
   }
   task "$target-version" (description: "Show version of $target component", group: PACKAGES_GROUP) << {
-    println "Base: ${BOM_map[variable + '_BASE_VERSION']}"
+    println "Base: ${config.bigtop.components[target].version.base}"
   }
   task "${target}_vardefines" << {
-    BOM_map[variable + '_NAME'] = target
-    if (!BOM_map[variable + '_PKG_NAME']) {
-      BOM_map[variable + '_PKG_NAME'] = BOM_map[variable + '_NAME']
-    }
-    BOM_map[variable + '_PKG_RELEASE'] = '1'
+    setDefaults(config.bigtop.components[target])
 
-    BOM_map[variable + '_BUILD_DIR'] = BOM_map['BUILD_DIR'] + "/$target"
-    BOM_map[variable + '_OUTPUT_DIR'] = BOM_map['OUTPUT_DIR'] + "/$target"
-    BOM_map[variable + '_SOURCE_DIR'] = BOM_map['BUILD_DIR'] + "/source"
-    BOM_map[variable + '_TAR_DIR'] = BOM_map['BUILD_DIR'] + "/$target/tar/${target}-${BOM_map[variable + '_BASE_VERSION']}"
-    BOM_map[variable + '_SEED_TAR'] = BOM_map['BUILD_DIR'] + "/$target/tar/" + BOM_map[variable + '_TARBALL_DST']
+    config.bigtop.components[target].package.release = '1'
 
-    BOM_map[variable + '_DOWNLOAD_URL'] =
-        (BOM_map[variable + '_SITE'] != null && BOM_map[variable + '_TARBALL_SRC'] != null) ?
-            BOM_map[variable + '_SITE'] + '/' + BOM_map[variable + '_TARBALL_SRC'] : null
-    BOM_map[variable + '_DOWNLOAD_DST'] = (BOM_map[variable + '_TARBALL_SRC'] != null) ?
-        DL_DIR + '/' + BOM_map[variable + '_TARBALL_SRC'] : null
+    config.bigtop.components[target].builddir = config.bigtop.builddir + "/$target"
+    config.bigtop.components[target].outputdir = config.bigtop.outputdir + "/$target"
+    config.bigtop.components[target].srcdir = config.bigtop.builddir + "/source"
+    config.bigtop.components[target].tardir = config.bigtop.builddir + "/$target/tar/${target}-${config.bigtop.components[target].version.base}"
+    config.bigtop.components[target].seedtar = config.bigtop.builddir + "/$target/tar/" + config.bigtop.components[target].tarball.destination
+
+    config.bigtop.components[target].downloadurl =
+        (!config.bigtop.components[target].url.isEmpty() &&
+            !config.bigtop.components[target].url.site.isEmpty() &&
+            !config.bigtop.components[target].tarball.source.isEmpty()) ?
+            config.bigtop.components[target].url.site + '/' + config.bigtop.components[target].tarball.source : null
+        if (!config.bigtop.components[target].tarball.source.isEmpty())
+          config.bigtop.components[target].downloaddst = DL_DIR + '/' + config.bigtop.components[target].tarball.source
 
     // test that the download url will return http 200.  If it does not, use the ARCHIVE url instead of the MIRROR SITE url
-    if (!ifExists(BOM_map[variable + '_DOWNLOAD_URL'])) {
-      BOM_map[variable + '_DOWNLOAD_URL'] = BOM_map[variable + '_ARCHIVE'] + '/' + BOM_map[variable + '_TARBALL_SRC']
+    if (!config.bigtop.components[target].url.isEmpty() && !ifExists(config.bigtop.components[target].downloadurl)) {
+      config.bigtop.components[target].downloadurl = config.bigtop.components[target].url.archive + '/' + config.bigtop.components[target].tarball.source
     }
 
-    BOM_map[variable + '_TARGET_DL']  = BOM_map[variable + '_BUILD_DIR'] + '/.download'
-    BOM_map[variable + '_TARGET_TAR']  = BOM_map[variable + '_BUILD_DIR'] + '/.tar'
-    BOM_map[variable + '_TARGET_SRPM']  = BOM_map[variable + '_BUILD_DIR'] + '/.srpm'
-    BOM_map[variable + '_TARGET_RPM']  = BOM_map[variable + '_BUILD_DIR'] + '/.rpm'
-    BOM_map[variable + '_TARGET_YUM']  = BOM_map[variable + '_BUILD_DIR'] + '/.yum'
-    BOM_map[variable + '_TARGET_SDEB']  = BOM_map[variable + '_BUILD_DIR'] + '/.sdeb'
-    BOM_map[variable + '_TARGET_DEB']  = BOM_map[variable + '_BUILD_DIR'] + '/.deb'
-    BOM_map[variable + '_TARGET_APT']  = BOM_map[variable + '_BUILD_DIR'] + '/.apt'
-    BOM_map[variable + '_TARGET_RELNOTES']  = BOM_map[variable + '_BUILD_DIR'] + '/.relnotes'
+    config.bigtop.components[target].targetdl  = config.bigtop.components[target].builddir + '/.download'
+    config.bigtop.components[target].targettar  = config.bigtop.components[target].builddir + '/.tar'
+    config.bigtop.components[target].targetsrpm  = config.bigtop.components[target].builddir + '/.srpm'
+    config.bigtop.components[target].targetrpm  = config.bigtop.components[target].builddir + '/.rpm'
+    config.bigtop.components[target].targetsdeb  = config.bigtop.components[target].builddir + '/.sdeb'
+    config.bigtop.components[target].targetdeb  = config.bigtop.components[target].builddir + '/.deb'
+    config.bigtop.components[target].targetrelnotes  = config.bigtop.components[target].builddir + '/.relnotes'
 
     if (System.getProperty(VERBOSE)) {
-      BOM_map.keySet().findAll{ it.startsWith (variable) }. each { k ->
-        println "$k ${BOM_map.get(k)}"
+      println "$target properties (explcit and derived)"
+      config.bigtop.components[target].toProperties(target).each {k ,v ->
+        println "$k\t= $v"
       }
     }
   }
@@ -588,68 +590,54 @@ def genTasks = { target, variable ->
       description: "Info about $target component build",
       group: PACKAGES_GROUP) << {
     println "Info for package $target"
-    println "  Will download from URL: ${BOM_map[variable + '_DOWNLOAD_URL']}"
-    println "  To destination file: ${BOM_map[variable + '_DOWNLOAD_DST']}"
-    println "  Then unpack into ${BOM_map[variable + '_SOURCE_DIR']}"
-    println "  And create a seed tarball ${BOM_map[variable + '_SEED_TAR']}"
+    println "  Will download from URL: ${config.bigtop.components[target].downloadurl}"
+    println "  To destination file: ${config.bigtop.components[target].downloaddst}"
+    println "  Then unpack into ${config.bigtop.components[target].srcdir}"
+    println "  And create a seed tarball ${config.bigtop.components[target].seedtar}"
 
-    println "Version: " + BOM_map[variable + '_BASE_VERSION']
+    println "Version: " + config.bigtop.components[target].version.base
     //TODO more about stamping
   }
   task "$target-relnotes" (description: "Preparing release notes for $target. No yet implemented!!!", group: PACKAGES_GROUP)<< {
   }
   task "$target-clean" (dependsOn: "${target}_vardefines",
-      description: "Removing $target component ${BOM_map[variable + '_BUILD_DIR']} and ${BOM_map[variable + '_OUTPUT_DIR']}",
+      description: "Removing $target component build and output directories",
       group: PACKAGES_GROUP) << {
-    delete(BOM_map[variable + '_BUILD_DIR'])
-    delete(BOM_map[variable + '_OUTPUT_DIR'])
+    safeDelete(config.bigtop.components[target].builddir)
+    safeDelete(config.bigtop.components[target].outputdir)
   }
   task "$target-help" (description: "List of available tasks for $target", group: PACKAGES_GROUP) << {
     println (target + "\n\t[" + tasks.findAll { alltask -> alltask.name.startsWith(target)}*.name.join(", ") + "]")
   }
+
+  bomTasks.add(target)
 }
 
-def readBOM = {
-
-  def buildUtils = new org.apache.bigtop.BuildUtils()
-  def bomfile = new File(BOM)
-  def envs = []
-
-  bomfile.eachLine {
-    if (!it.startsWith("#") && !it.isEmpty()) {
-      if (it.startsWith("\$(eval")) {
-        def pattern = ~/.*call PACKAGE,(\w+[-\w+]*),(\w+)/
-        def m = it =~ pattern
-        assert m.size() == 1
-        def target = m[0][1]
-        def variable = m[0][2]
-        genTasks(target, variable)
-        targets.add(target)
-        // Store the component name in the list
-        // TODO - we might not need them components anymore: version are calculated differently now
-        components.add(variable)
-        return
-      }
-      envs = it?.split("=")
-      def value = buildUtils.evaluateBOM(BOM_map, envs[1])
-      value = System.getProperty(envs[0]) ?: value
-      BOM_map.put(envs[0], value)
-    }
-  }
+// Let's enforce some of the configuration requirements
+private void doValidateBOM(config) {
+  assert config.bigtop.version
+  assert config.bigtop.stack.jdk
+  assert config.bigtop.stack.scala
+  assert config.bigtop.apache.size() != 0
 }
 
 // We need to make sure that all dynamic tasks are available for invocation
 project.afterEvaluate {
-  readBOM()
-  def bomVersions = ""
+  doValidateBOM(config)
+  config.bigtop.components.each { component_label, comp ->
+    assert component_label == comp.name
+    genTasks(comp.name)
+  }
   // Versions need to be preserved for more than just component:
   //  - there are JDK version requirement
   //  - possibly more in the future
-  BOM_map.keySet().findAll { it ==~ /.*_BASE_VERSION/ }.each { base_version ->
-    bomVersions += "${base_version.replaceAll('_BASE', '')}=${BOM_map[base_version]} "
+  bomVersions = config.bigtop.components.collect {
+    "${toOldStyleName(it.value.name)}_VERSION=${it.value.version.base}"
   }
-  BOM_map[BIGTOP_BOM] = bomVersions
-  if (System.getProperty(VERBOSE))println "BIGTOP_BOM:\n${BOM_map[BIGTOP_BOM]}"
+  bomVersions += config.bigtop.stack.collect { // Version of the stack have different syntax
+    "${toOldStyleName(it.key)}_VERSION=${it.value.version_base}"
+  }
+  if (System.getProperty(VERBOSE))println "BIGTOP_BOM_VERSIONS:\n${bomVersions.join(' ')}"
   // Putting all targets of different types into one common target
   task "srpm" (dependsOn: tasks.findAll { alltask -> alltask.name.endsWith("-srpm")}*.name,
       description: "Build all SRPM packages for the stack components",
@@ -657,10 +645,6 @@ project.afterEvaluate {
   ) << { }
   task "rpm" (dependsOn: tasks.findAll { alltask -> alltask.name.endsWith("-rpm")}*.name,
       description: "Build all RPM packages for the stack",
-      group: PACKAGES_GROUP
-  ) << { }
-  task "yum" (dependsOn: tasks.findAll { alltask -> alltask.name.endsWith("-yum")}*.name,
-      description: "Create YUM repository for all pre-built RPM packages",
       group: PACKAGES_GROUP
   ) << { }
   task "sdeb" (dependsOn: tasks.findAll { alltask -> alltask.name.endsWith("-sdeb")}*.name,
@@ -671,8 +655,8 @@ project.afterEvaluate {
       description: "Build all DEB packages for the stack components",
       group: PACKAGES_GROUP
   ) << { }
-  task "apt" (dependsOn: tasks.findAll { alltask -> alltask.name.endsWith("-apt")}*.name,
-      description: "Create APT repository for all pre-built DEB packages",
+  task "pkgs" (dependsOn: tasks.findAll { alltask -> alltask.name.endsWith("-pkg")}*.name,
+      description: "Build all native packages for the stack components",
       group: PACKAGES_GROUP
   ) << { }
 
@@ -680,13 +664,48 @@ project.afterEvaluate {
       description: "Removing $BUILD_DIR, $OUTPUT_DIR, and $DIST_DIR.\n\t\t" +
         "Cleaning all components' build and output directories.",
       group: PACKAGES_GROUP) << {
-    delete (BUILD_DIR)
-    delete (OUTPUT_DIR)
-    delete (DIST_DIR)
+    safeDelete(BUILD_DIR)
+    safeDelete(OUTPUT_DIR)
+    safeDelete(DIST_DIR)
   }
   task realclean (dependsOn: allclean,
       description: "Removing $BUILD_DIR, $OUTPUT_DIR, $DIST_DIR, and $DL_DIR",
       group: PACKAGES_GROUP) << {
     delete (DL_DIR)
   }
+}
+
+task "apt" (
+    description: "Creating APT repository",
+    group: PACKAGES_GROUP) << {
+
+  delete ( "$OUTPUT_DIR/apt")
+  mkdir ("$OUTPUT_DIR/apt/conf")
+
+  generateDistributionsFile("$OUTPUT_DIR/apt/conf/distributions");
+
+  fileTree (OUTPUT_DIR) {
+    include "*/*.changes"
+  }.each  { changeFile ->
+    exec {
+      workingDir BUILD_DIR
+      commandLine "reprepro -Vb $OUTPUT_DIR/apt include bigtop $changeFile".split(' ')
+    }
+  }
+}
+
+task "yum" (
+    description: "Creating YUM repository",
+    group: PACKAGES_GROUP) << {
+  delete ( "$OUTPUT_DIR/repodata")
+  exec {
+    workingDir BUILD_DIR
+    commandLine "createrepo -o $OUTPUT_DIR $OUTPUT_DIR".split(' ')
+  }
+}
+
+if (nativePackaging) {
+  task "repo" (dependsOn: nativePackaging.repo,
+      description: "Invoking a native repository target ${nativePackaging.repo}",
+      group: PACKAGES_GROUP) << { }
 }

@@ -82,6 +82,13 @@ Summary: Server for kafka
 Group: System/Daemons
 Requires: kafka = %{version}-%{release}
 
+# CentOS 5 does not have any dist macro
+# So I will suppose anything that is not Mageia or a SUSE will be a RHEL/CentOS/Fedora
+%if %{!?suse_version:1}0 && %{!?mgaversion:1}0
+# Required for init scripts
+Requires: redhat-lsb
+%endif
+
 %description server
 Bundles the init script for kafka server.
 
@@ -153,7 +160,7 @@ fi
 
 %files
 %defattr(-,root,root,755)
-%{bin}
+%{bin}/*
 %config(noreplace) %{config_kafka}.dist
 %config(noreplace) /etc/default/kafka
 %attr(0755,kafka,kafka) %{lib_kafka}

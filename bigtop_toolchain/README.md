@@ -30,8 +30,6 @@ Puppet module for configuring a host for building BigTop. It installs:
 
 **Protobuf 2.5.0**
 
-**Scala 2.10.3**
-
 ##Usage
 
 These can be indivdually applied using:
@@ -60,7 +58,6 @@ building BigTop:
 MAVEN_HOME=/usr/local/maven
 JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk.x86_64
 ANT_HOME=/usr/local/ant
-SCALA_HOME=/usr/share/java
 GRADLE_HOME=/usr/local/gradle
 PATH=$MAVEN_HOME/bin:$ANT_HOME/bin:$FORREST_HOME/bin:$GRADLE_HOME/bin:$PATH
 ```

@@ -13,16 +13,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-$default_yumrepo = "http://bigtop01.cloudera.org:8080/view/Releases/job/Bigtop-0.8.0/label=centos6/6/artifact/output/"
-$default_debrepo = "http://bigtop01.cloudera.org:8080/view/Releases/job/Bigtop-0.8.0/label=trusty/5/artifact/output/apt/"
+# Prepare default repo by detecting the environment automatically
+case $operatingsystem {
+    # Use CentOS 7 repo for other CentOS compatible OSs
+    /(OracleLinux|Amazon|RedHat)/: {
+      $default_repo = "http://bigtop-repos.s3.amazonaws.com/releases/1.0.0/centos/7/x86_64"
+    }
+    # Detect env to pick up default repo for other Bigtop supported OSs
+    default: {
+      $lower_os = downcase($operatingsystem)
+      # We use code name such as trusty for Ubuntu instead of release version in bigtop's binary convenience repos
+      if ($operatingsystem == "Ubuntu") { $release = $lsbdistcodename } else { $release = $operatingsystemmajrelease }
+      $default_repo = "http://bigtop-repos.s3.amazonaws.com/releases/1.0.0/${lower_os}/${release}/x86_64"
+    }
+}
+
+$jdk_preinstalled = hiera("bigtop::jdk_preinstalled", false)
 $jdk_package_name = hiera("bigtop::jdk_package_name", "jdk")
 
 stage {"pre": before => Stage["main"]}
 
+# as discussed in BIGTOP-2339 we'll have to enforce init.d until such time 
+# we have a conceptually more welcoming environment for systemd
+Service {
+  provider => init,
+}
+
 case $operatingsystem {
     /(OracleLinux|Amazon|CentOS|Fedora|RedHat)/: {
        yumrepo { "Bigtop":
-          baseurl => hiera("bigtop::bigtop_repo_uri", $default_yumrepo),
+          baseurl => hiera("bigtop::bigtop_repo_uri", $default_repo),
           descr => "Bigtop packages",
           enabled => 1,
           gpgcheck => 0,
@@ -36,7 +56,7 @@ case $operatingsystem {
 	  ensure => present
        }
        apt::source { "Bigtop":
-          location => hiera("bigtop::bigtop_repo_uri", $default_debrepo),
+          location => hiera("bigtop::bigtop_repo_uri", $default_repo),
           release => "bigtop",
           repos => "contrib",
           ensure => present,
@@ -51,36 +71,23 @@ case $operatingsystem {
 package { $jdk_package_name:
   ensure => "installed",
   alias => "jdk",
+  noop => $jdk_preinstalled,
 }
 
 import "cluster.pp"
 
 node default {
-  $hadoop_head_node = hiera("bigtop::hadoop_head_node")
-  $standby_head_node = hiera("bigtop::standby_head_node", "")
-  $hadoop_gateway_node = hiera("bigtop::hadoop_gateway_node", $hadoop_head_node)
 
-  # look into alternate hiera datasources configured using this path in
-  # hiera.yaml
-  $hadoop_hiera_ha_path = $standby_head_node ? {
-    ""      => "noha",
-    default => "ha",
+  $roles_enabled = hiera("bigtop::roles_enabled", false)
+
+  if (!is_bool($roles_enabled)) {
+    fail("bigtop::roles hiera conf is not of type boolean. It should be set to either true or false")
   }
 
-  case $::fqdn {
-    $hadoop_head_node: {
-      include hadoop_head_node
-    }
-    $standby_head_node: {
-      include standby_head_node
-    }
-    default: {
-      include hadoop_worker_node
-    }
-  }
-
-  if ($hadoop_gateway_node == $::fqdn) {
-    include hadoop_gateway_node
+  if ($roles_enabled) {
+    include node_with_roles
+  } else {
+    include node_with_components
   }
 }
 

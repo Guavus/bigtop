@@ -55,6 +55,30 @@ There are lots of ways to contribute.  People with different expertise can help 
  
 Also, opening [JIRA's](https://issues.apache.org/jira/browse/BIGTOP) and getting started by posting on the mailing list is helpful.
 
+CTR model
+=========
+
+Bigtop supports Commit-Then-Review model of development. The following
+rules will be used for the CTR process:
+  * a committer can go ahead and commit the patch without mandatory review if
+    felt confident in its quality (e.g. reasonable testing has been done
+    locally; all compilations pass; RAT check is passed; the patch follows
+    coding guidelines)
+  * a committer is encouraged to seek peer-review and/or advice before hand if
+    there're doubts in the approach taken, design decision, or implementation
+    details
+  * a committer should keep an eye on the official CI builds at
+    https://ci.bigtop.apache.org/view/Packages/job/Bigtop-trunk-packages/ (Bigtop-trunk-packages builds)
+    to make sure that committed changes haven't break anything. In
+    which case the committer should take a timely effort to resolve the issues
+    and unblock the others in the community
+  * any non-document patch is required to be opened for at least 24 hours for
+    community feedback before it gets committed unless it has an explicit +1
+    from another committer
+  * any non-document patch needs to address all the comment and reach consensus
+    before it gets committed without a +1 from other committers
+  * there's no changes in the JIRA process, except as specified above
+
 What do people use Apache Bigtop for? 
 ==============================
 
@@ -73,10 +97,7 @@ For specific questions it's always a good idea to ping the mailing list at dev-s
 For Users: Running the smoke tests.
 -----------------------------------
 
-The simplest way to test bigtop is to:
-
-* Step 1: cd bigtop-tests/smoke-tests/
-* Step 2: Follow the instructions in the smoke-tests/README file.
+The simplest way to test bigtop is described in bigtop-tests/smoke-tests/README file
 
 For integration (API level) testing with maven, read on. 
 
@@ -158,8 +179,28 @@ __On all systems, Building Apache Bigtop requires certain set of tools__
   all development dependencies, frameworks and SDKs, required to build the stack on your platform.
 
 * __Building packages__ : `gradle [component-name]-[rpm|deb]`
+
+  If -Dbuildwithdeps=true is set, the Gradle will follow the order of the build specified in
+  the "dependencies" section of bigtop.bom file. Otherwise just a single component will get build (original behavior).
+
+  To use an alternative definition of a stack composition (aka BOM), specify its
+  name with -Dbomfile=<filename> system property in the build time.
+
+  You can visualize all tasks dependencies by running `gradle tasks --all`
 * __Building local YUM/APT repositories__ : `gradle [component-name]-[yum|apt]`
 
+* __Recommended build environments__
+
+  Bigtop provides "development in the can" environments, using Docker containers.
+  These have the build tools set by the toolchain, as well as the user and build
+  environment configured and cached. All currently supported OSes could be pulled
+  from official Bigtop repository at https://hub.docker.com/r/bigtop/slaves/tags/
+
+  To build a component (bigtop-groovy) for a particular OS (ubuntu-14.04) you can
+  run the following from a clone of Bigtop workspace (assuming your system has
+  Docker engine setup and working)
+  ```docker run --rm -u jenkins:jenkins -v `pwd`:/ws --workdir /ws bigtop/slaves:trunk-ubuntu-14.04
+  bash -l -c './gradlew allclean ; ./gradlew bigtop-groovy-pkg'```
 
 For Developers: Building and modifying the web site
 ---------------------------------------------------

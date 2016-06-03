@@ -20,9 +20,9 @@
 %if %{!?suse_version:1}0 && %{!?mgaversion:1}0
 
 %define __os_install_post \
-    /usr/lib/rpm/redhat/brp-compress ; \
-    /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
-    /usr/lib/rpm/redhat/brp-strip-comment-note %{__strip} %{__objdump} ; \
+    %{_rpmconfigdir}/brp-compress ; \
+    %{_rpmconfigdir}/brp-strip-static-archive %{__strip} ; \
+    %{_rpmconfigdir}/brp-strip-comment-note %{__strip} %{__objdump} ; \
     /usr/lib/rpm/brp-python-bytecompile ; \
     %{nil}
 
@@ -33,11 +33,9 @@
 
 %if  %{?suse_version:1}0
 
-# Only tested on openSUSE 11.4. le'ts update it for previous
-#release when confirmed
+# Only tested on openSUSE 11.4. le'ts update it for previous release when confirmed
 %if 0%{suse_version} > 1130
-# Define an empty suse_check for compatibility with older sles
-%define suse_check \
+%define suse_check \# Define an empty suse_check for compatibility with older sles
 %endif
 
 %define doc_tez %{_docdir}/tez

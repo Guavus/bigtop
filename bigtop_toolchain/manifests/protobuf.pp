@@ -15,39 +15,34 @@
 
 class bigtop_toolchain::protobuf {
 
-  include bigtop_toolchain::deps
-
   case $operatingsystem{
     /Ubuntu|Debian/: {
-      exec { '/usr/bin/wget https://launchpad.net/ubuntu/+archive/primary/+files/libprotobuf8_2.5.0-9ubuntu1_amd64.deb':
-        cwd     => "/usr/src",
-        require => Package[$packages::pkgs],
-        unless  => "/usr/bin/test -f /usr/src/libprotobuf8_2.5.0-9ubuntu1_amd64.deb",
+      case $architecture {
+        'amd64' : { $url = "https://launchpad.net/ubuntu/+source/protobuf/2.5.0-9ubuntu1/+build/5585371/+files/"
+                    $arch= "amd64" }
+        'ppc64le' : { $url = "https://launchpad.net/ubuntu/+source/protobuf/2.5.0-9ubuntu1/+build/5604345/+files"
+                    $arch= "ppc64el" }
+        'aarch64' : { $url = "https://launchpad.net/ubuntu/+source/protobuf/2.5.0-9ubuntu1/+build/5585372/+files"
+                    $arch= "arm64" }
       }
-      exec { '/usr/bin/wget https://launchpad.net/ubuntu/+archive/primary/+files/libprotoc8_2.5.0-9ubuntu1_amd64.deb':
+    }
+  }
+ 
+  case $operatingsystem{
+    /Ubuntu|Debian/: {
+      $libprotobuf8 = "libprotobuf8_2.5.0-9ubuntu1_$arch.deb"
+      $libprotoc8 = "libprotoc8_2.5.0-9ubuntu1_$arch.deb"
+      $protobuf_compiler = "protobuf-compiler_2.5.0-9ubuntu1_$arch.deb"
+
+      exec { "download protobuf":
         cwd     => "/usr/src",
-        require => Package[$packages::pkgs],
-        unless  => "/usr/bin/test -f /usr/src/libprotoc8_2.5.0-9ubuntu1_amd64.deb",
+        command => "/usr/bin/curl -L $url/$libprotobuf8 -o $libprotobuf8; /usr/bin/curl -L $url/$libprotoc8 -o $libprotoc8; /usr/bin/curl -L $url/$protobuf_compiler -o $protobuf_compiler",
+        creates  => [ "/usr/src/$libprotobuf8", "/usr/src/$libprotoc8", "/usr/src/$protobuf_compiler" ]
       }
-      exec { '/usr/bin/wget https://launchpad.net/ubuntu/+archive/primary/+files/protobuf-compiler_2.5.0-9ubuntu1_amd64.deb':
+      exec { "install protobuf":
         cwd     => "/usr/src",
-        require => Package[$packages::pkgs],
-        unless  => "/usr/bin/test -f /usr/src/protobuf-compiler_2.5.0-9ubuntu1_amd64.deb",
-      }
-      exec {'/usr/bin/dpkg -i protobuf-compiler_2.5.0-9ubuntu1_amd64.deb':
-        unless  => "/usr/bin/test -f /usr/bin/protoc",
-        cwd     => "/usr/src",
-        require => [ EXEC["/usr/bin/dpkg -i libprotoc8_2.5.0-9ubuntu1_amd64.deb"],EXEC["/usr/bin/wget https://launchpad.net/ubuntu/+archive/primary/+files/protobuf-compiler_2.5.0-9ubuntu1_amd64.deb"] ]
-      }
-      exec {'/usr/bin/dpkg -i libprotoc8_2.5.0-9ubuntu1_amd64.deb':
-        unless  => "/usr/bin/test -f /usr/bin/protoc",
-        cwd     => "/usr/src",
-        require => [ EXEC["/usr/bin/dpkg -i libprotobuf8_2.5.0-9ubuntu1_amd64.deb"],EXEC["/usr/bin/wget https://launchpad.net/ubuntu/+archive/primary/+files/libprotoc8_2.5.0-9ubuntu1_amd64.deb"] ]
-      }
-      exec {'/usr/bin/dpkg -i libprotobuf8_2.5.0-9ubuntu1_amd64.deb':
-        unless  => "/usr/bin/test -f /usr/bin/protoc",
-        cwd     => "/usr/src",
-        require => EXEC["/usr/bin/wget https://launchpad.net/ubuntu/+archive/primary/+files/libprotobuf8_2.5.0-9ubuntu1_amd64.deb"],
+        command => "/usr/bin/dpkg -i $libprotobuf8 $libprotoc8 $protobuf_compiler",
+        require => EXEC["download protobuf"],
       }
     }
     default: {
@@ -67,7 +62,7 @@ class bigtop_toolchain::protobuf {
          }
          /(?i:(SLES|opensuse))/:{
            exec { 'install_mrdocs_repo':
-              command => '/usr/bin/zypper ar --no-gpgcheck http://download.opensuse.org/repositories/home:/mrdocs:/protobuf-rpm/openSUSE_12.3/ protobuf',
+              command => '/usr/bin/zypper ar --no-gpgcheck http://download.opensuse.org/repositories/home:/mrdocs:/protobuf-rpm/openSUSE_13.2/ protobuf',
               unless => "/usr/bin/zypper lr | grep -q protobuf",
            }
          }

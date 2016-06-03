@@ -17,9 +17,7 @@
 
 enable_local_repo=${1:-false}
 
-# Install puppet agent
-apt-get update
-apt-get -y install puppet curl sudo unzip
+bash /bigtop-home/bigtop_toolchain/bin/puppetize.sh
 
 # Setup rng-tools to improve virtual machine entropy performance.
 # The poor entropy performance will cause kerberos provisioning failed.
@@ -31,10 +29,7 @@ if [ $enable_local_repo == "true" ]; then
     echo "deb file:///bigtop-home/output/apt bigtop contrib" > /etc/apt/sources.list.d/bigtop-home_output.list
     apt-get update
 else
-    echo "local yum = $enable_local_repo ; NOT Enabling local yum.  Packages will be pulled from remote..."
+    apt-get install -y apt-transport-https
+    echo "local apt = $enable_local_repo ; NOT Enabling local apt. Packages will be pulled from remote..."
 fi
 
-# Install puppet modules
-puppet apply --modulepath=/bigtop-home -e "include bigtop_toolchain::puppet-modules"
-
-mkdir -p /data/{1,2}

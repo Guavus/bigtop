@@ -60,9 +60,9 @@
 # So for now brp-repack-jars is being deactivated until this is fixed.
 # See BIGTOP-294
 %define __os_install_post \
-    /usr/lib/rpm/redhat/brp-compress ; \
-    /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
-    /usr/lib/rpm/redhat/brp-strip-comment-note %{__strip} %{__objdump} ; \
+    %{_rpmconfigdir}/brp-compress ; \
+    %{_rpmconfigdir}/brp-strip-static-archive %{__strip} ; \
+    %{_rpmconfigdir}/brp-strip-comment-note %{__strip} %{__objdump} ; \
     /usr/lib/rpm/brp-python-bytecompile ; \
     %{nil}
 %endif
@@ -93,7 +93,7 @@ Source6: hbase.nofiles.conf
 Source7: regionserver-init.d.tpl
 BuildArch: noarch
 Requires: coreutils, /usr/sbin/useradd, /sbin/chkconfig, /sbin/service
-Requires: hadoop-hdfs, zookeeper >= 3.3.1, bigtop-utils >= 0.7
+Requires: hadoop-client, zookeeper >= 3.3.1, bigtop-utils >= 0.7
 
 %if  0%{?mgaversion}
 Requires: bsh-utils
@@ -313,6 +313,20 @@ done
 # Pull zookeeper and hadoop from their packages
 rm -f $RPM_BUILD_ROOT/%{lib_hbase}/{hadoop,zookeeper,slf4j-log4j12-}*.jar
 ln -f -s %{zookeeper_home}/zookeeper.jar $RPM_BUILD_ROOT/%{lib_hbase}
+
+ln -f -s %{hadoop_home}/client/hadoop-annotations.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-auth.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-common.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-hdfs.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-mapreduce-client-app.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-mapreduce-client-common.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-mapreduce-client-core.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-mapreduce-client-jobclient.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-mapreduce-client-shuffle.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-yarn-api.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-yarn-client.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-yarn-common.jar $RPM_BUILD_ROOT/%{lib_hbase}
+ln -f -s %{hadoop_home}/client/hadoop-yarn-server-common.jar $RPM_BUILD_ROOT/%{lib_hbase}
 
 %pre
 getent group hbase 2>/dev/null >/dev/null || /usr/sbin/groupadd -r hbase

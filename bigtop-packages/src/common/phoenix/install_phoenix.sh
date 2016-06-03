@@ -110,25 +110,30 @@ install -d -m 0755 $PREFIX/$DOC_DIR
 install -d -m 0755 $PREFIX/$MAN_DIR
 install -d -m 0755 $PREFIX/$ETC_DIR
 install -d -m 0755 $PREFIX/$CONF_DIR
+install -d -m 0755 $PREFIX/var/lib/phoenix
+install -d -m 0755 $PREFIX/var/log/phoenix
 
-cp -ra $BUILD_DIR/lib/* $PREFIX/$LIB_DIR/lib
-cp -a $BUILD_DIR/phoenix*.jar $PREFIX/$LIB_DIR
-cp -a $BUILD_DIR/examples $PREFIX/$DOC_DIR
-cp -a  $BUILD_DIR/bin/*.txt $PREFIX/$DOC_DIR
-
-cp -a $BUILD_DIR/bin/*.py $PREFIX/$BIN_DIR
-cp -a $BUILD_DIR/bin/*.properties $PREFIX/$BIN_DIR
+cp $BUILD_DIR/*.jar $PREFIX/$LIB_DIR/
+cp -r $BUILD_DIR/bin $PREFIX/$LIB_DIR/
+chmod 755 $PREFIX/$BIN_DIR/*.py
+chmod 755 $PREFIX/$BIN_DIR/*.sh
 
 # Remove sources jar
-rm $PREFIX/$LIB_DIR/lib/phoenix-*-sources.jar
+rm $PREFIX/$LIB_DIR/phoenix-*-sources.jar
+
+cp -a $BUILD_DIR/{LICENSE,NOTICE} $PREFIX/$DOC_DIR/
+cp -ra $BUILD_DIR/examples $PREFIX/$DOC_DIR
 
 # Remove the executable bit from jars to avoid lintian warnings
 find $PREFIX/$LIB_DIR -name '*.jar' -exec chmod a-x {} \;
 
 # Create version independent symlinks
-
 # phoenix-client for clients like sqlline
-ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix*-client.jar` $PREFIX/$LIB_DIR/phoenix-client.jar
+ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix*-client.jar | grep -v thin` $PREFIX/$LIB_DIR/phoenix-client.jar
+
+# phoenix-thin-client
+ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix*-thin-client.jar` $PREFIX/$LIB_DIR/phoenix-thin-client.jar
 
 # phoenix-server for placing on the HBase regionserver classpath
 ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix*-server.jar` $PREFIX/$LIB_DIR/phoenix-server.jar
+

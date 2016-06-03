@@ -39,25 +39,13 @@ override_dh_auto_build:
 	mkdir -p debian/tmp/bigtop-empty
 	bash debian/do-component-build -Dmaven.repo.local=${HOME}/.m2/repository
 
-override_dh_auto_install:
+.PHONY: queryserver
+	bash debian/init.d.tmpl debian/${phoenix_pkg_name}-queryserver.svc deb debian/${phoenix_pkg_name}-queryserver.init
+	
+override_dh_auto_install: queryserver
 	cp debian/phoenix.default debian/${phoenix_pkg_name}/etc/default/${phoenix_pkg_name}
+	cp debian/phoenix-queryserver.default debian/${phoenix_pkg_name}/etc/default/${phoenix_pkg_name}-queryserver
 	bash -x debian/install_phoenix.sh \
 	  --build-dir=$${PWD}/build     \
 	  --prefix=debian/tmp
-	# Symlink in the dependency jars from their packages.
-	rm -f debian/tmp/usr/lib/${phoenix_pkg_name}/lib/zookeeper*.jar
-	ln -f -s ${zookeeper_home}/zookeeper.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	rm -f debian/tmp/usr/lib/${phoenix_pkg_name}/lib/hadoop*.jar
-	ln -f -s ${hadoop_home}/hadoop-annotations.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hadoop_home}/hadoop-auth.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hadoop_home}/hadoop-common.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hadoop_mapreduce_home}/hadoop-mapreduce-client-core.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hadoop_yarn_home}/hadoop-yarn-api.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hadoop_yarn_home}/hadoop-yarn-common.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hadoop_hdfs_home}/hadoop-hdfs.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	rm -f debian/tmp/usr/lib/${phoenix_pkg_name}/lib/hbase*.jar
-	ln -f -s ${hbase_home}/hbase-testing-util.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hbase_home}/hbase-it.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hbase_home}/hbase-common.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hbase_home}/hbase-protocol.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
-	ln -f -s ${hbase_home}/hbase-client.jar debian/tmp/usr/lib/${phoenix_pkg_name}/lib/
+

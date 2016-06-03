@@ -16,7 +16,8 @@
 %define bin_phoenix %{phoenix_home}/bin
 %define etc_phoenix_conf %{_sysconfdir}/%{name}/conf
 %define etc_phoenix_conf_dist %{etc_phoenix_conf}.dist
-%define lib_phoenix %{phoenix_home}/lib
+%define var_lib_phoenix /var/lib/%{name}
+%define var_log_phoenix /var/log/%{name}
 %define man_dir %{_mandir}
 %define zookeeper_home /usr/lib/zookeeper
 %define hadoop_home /usr/lib/hadoop
@@ -44,6 +45,7 @@
 
 %define doc_phoenix %{_docdir}/%{name}
 %define alternatives_cmd update-alternatives
+%global initd_dir %{_sysconfdir}/rc.d
 
 %else
 
@@ -57,18 +59,18 @@
 # So for now brp-repack-jars is being deactivated until this is fixed.
 # See BIGTOP-294
 %define __os_install_post \
-    /usr/lib/rpm/redhat/brp-compress ; \
-    /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
-    /usr/lib/rpm/redhat/brp-strip-comment-note %{__strip} %{__objdump} ; \
+    %{_rpmconfigdir}/brp-compress ; \
+    %{_rpmconfigdir}/brp-strip-static-archive %{__strip} ; \
+    %{_rpmconfigdir}/brp-strip-comment-note %{__strip} %{__objdump} ; \
     /usr/lib/rpm/brp-python-bytecompile ; \
     %{nil}
 %endif
 
 %define doc_phoenix %{_docdir}/%{name}-%{phoenix_version}
 %define alternatives_cmd alternatives
+%global initd_dir %{_sysconfdir}/rc.d/init.d
 
 %endif
-
 
 Name: phoenix
 Version: %{phoenix_version}
@@ -82,6 +84,9 @@ Source0: %{name}-%{phoenix_base_version}-src.tar.gz
 Source1: do-component-build
 Source2: install_phoenix.sh
 Source3: phoenix.default
+Source4: bigtop.bom
+Source5: %{name}-queryserver.svc
+Source6: %{name}-queryserver.default
 BuildArch: noarch
 Requires: hadoop, hadoop-mapreduce, hadoop-yarn, hbase, zookeeper
 
@@ -100,6 +105,15 @@ performance on the order of milliseconds for small queries, or seconds for
 tens of millions of rows. Applications interact with Phoenix through a
 standard JDBC interface; all the usual interfaces are supported.
 
+%package queryserver
+Summary: A stand-alone server that exposes Phoenix to thin clients
+Group: Development/Libraries
+Requires: phoenix = %{version}-%{release}
+
+%description queryserver
+The Phoenix Query Server provides an alternative means for interaction 
+with Phoenix and HBase. Soon this will enable access from environments 
+other than the JVM.
 
 %prep
 %setup -n %{name}-%{phoenix_base_version}-src
@@ -116,25 +130,16 @@ bash %{SOURCE2} \
 
 %__install -d -m 0755 $RPM_BUILD_ROOT/etc/default/
 %__install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT/etc/default/%{name}
+%__install -m 0644 %{SOURCE6} $RPM_BUILD_ROOT/etc/default/%{name}-queryserver
 
-# Pull zookeeper, hadoop, hadoop-mapreduce, hadoop-yarn, and hbase deps from their packages
-rm -f $RPM_BUILD_ROOT/%{lib_phoenix}/zookeeper*.jar
-ln -f -s %{zookeeper_home}/zookeeper.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-rm -f $RPM_BUILD_ROOT/%{lib_phoenix}/hadoop*.jar
-ln -f -s %{hadoop_home}/hadoop-annotations.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hadoop_home}/hadoop-auth.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hadoop_home}/hadoop-common.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hadoop_mapreduce_home}/hadoop-mapreduce-client-core.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hadoop_hdfs_home}/hadoop-hdfs.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hadoop_yarn_home}/hadoop-yarn-api.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hadoop_yarn_home}/hadoop-yarn-common.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-rm -f $RPM_BUILD_ROOT/%{lib_phoenix}/hbase*.jar
-ln -f -s %{hbase_home}/hbase-testing-util.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hbase_home}/hbase-it.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hbase_home}/hbase-common.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hbase_home}/hbase-protocol.jar $RPM_BUILD_ROOT/%{lib_phoenix}
-ln -f -s %{hbase_home}/hbase-client.jar $RPM_BUILD_ROOT/%{lib_phoenix}
+# Install init script
+init_file=$RPM_BUILD_ROOT/%{initd_dir}/%{name}-queryserver
+bash $RPM_SOURCE_DIR/init.d.tmpl $RPM_SOURCE_DIR/%{name}-queryserver.svc rpm $init_file
 
+%pre
+getent group phoenix >/dev/null || groupadd -r phoenix
+getent passwd phoenix >/dev/null || useradd -c "Phoenix" -s /sbin/nologin -g phoenix -r -d %{var_lib_phoenix} phoenix 2> /dev/null || :
+    
 %post
 %{alternatives_cmd} --install %{etc_phoenix_conf} %{name}-conf %{etc_phoenix_conf_dist} 30
 
@@ -152,7 +157,26 @@ fi
 %defattr(-,root,root,755)
 %doc %{doc_phoenix}
 %{phoenix_home}/phoenix-*.jar
-%{lib_phoenix}
 %{bin_phoenix}
 %config(noreplace) %{etc_phoenix_conf_dist}
 %config(noreplace) %{_sysconfdir}/default/phoenix
+
+%define service_macro() \
+%files %1 \
+%attr(0755,root,root)/%{initd_dir}/%{name}-%1 \
+%attr(0775,phoenix,phoenix) %{var_lib_phoenix} \
+%attr(0775,phoenix,phoenix) %{var_log_phoenix} \
+%config(noreplace) /etc/default/%{name}-%1 \
+%post %1 \
+chkconfig --add %{name}-%1 \
+\
+%preun %1 \
+if [ "$1" = 0 ] ; then \
+        service %{name}-%1 stop > /dev/null \
+        chkconfig --del %{name}-%1 \
+fi \
+%postun %1 \
+if [ $1 -ge 1 ]; then \
+   service %{name}-%1 condrestart >/dev/null 2>&1 || : \
+fi
+%service_macro queryserver

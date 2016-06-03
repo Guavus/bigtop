@@ -14,14 +14,44 @@
 # limitations under the License.
 
 class spark {
-  class common ($master_host = $fqdn, $master_port = "7077", $master_ui_port = "18080") {
-    package { "spark-core":
-      ensure => latest,
+
+  class deploy ($roles) {
+    if ('spark-client' in $roles) {
+      include client
     }
 
-    file { "/etc/spark/conf/spark-env.sh":
-        content => template("spark/spark-env.sh"),
-        require => [Package["spark-core"]],
+    if ('spark-on-yarn' in $roles) {
+      include yarn
+    }
+
+    if ('spark-yarn-slave' in $roles) {
+      include yarn_slave
+    }
+
+    if ('spark-master' in $roles) {
+      include master
+    }
+
+    if ('spark-worker' in $roles) {
+      include worker
+    }
+
+    if ('spark-history-server' in $roles) {
+      include history_server
+    }
+  }
+
+  class client {
+    include common
+
+    package { 'spark-python':
+      ensure  => latest,
+      require => Package['spark-core'],
+    }
+
+    package { 'spark-extras':
+      ensure  => latest,
+      require => Package['spark-core'],
     }
   }
 
@@ -32,14 +62,15 @@ class spark {
       ensure => latest,
     }
 
-    if ( $fqdn == $common::master_host ) {
-      service { "spark-master":
-        ensure => running,
-        require => [ Package["spark-master"], File["/etc/spark/conf/spark-env.sh"], ],
-        subscribe => [Package["spark-master"], File["/etc/spark/conf/spark-env.sh"] ],
-        hasrestart => true,
-        hasstatus => true,
-      }
+    service { 'spark-master':
+      ensure     => running,
+      subscribe  => [
+        Package['spark-master'],
+        File['/etc/spark/conf/spark-env.sh'],
+        File['/etc/spark/conf/spark-defaults.conf'],
+      ],
+      hasrestart => true,
+      hasstatus  => true,
     }
   }
 
@@ -50,15 +81,94 @@ class spark {
       ensure => latest,
     }
 
-    if ( $fqdn == $common::master_host ) {
-      Service["spark-master"] ~> Service["spark-worker"]
+    service { 'spark-worker':
+      ensure     => running,
+      subscribe  => [
+        Package['spark-worker'],
+        File['/etc/spark/conf/spark-env.sh'],
+        File['/etc/spark/conf/spark-defaults.conf'],
+      ],
+      hasrestart => true,
+      hasstatus  => true,
     }
-    service { "spark-worker":
-      ensure => running,
-      require => [ Package["spark-worker"], File["/etc/spark/conf/spark-env.sh"], ],
-      subscribe => [Package["spark-worker"], File["/etc/spark/conf/spark-env.sh"] ],
+  }
+
+  class history_server {
+    include common
+
+    package { 'spark-history-server':
+      ensure => latest,
+    }
+
+    service { 'spark-history-server':
+      ensure     => running,
+      subscribe  => [
+        Package['spark-history-server'],
+        File['/etc/spark/conf/spark-env.sh'],
+        File['/etc/spark/conf/spark-defaults.conf'],
+      ],
       hasrestart => true,
       hasstatus => true,
     } 
+  }
+
+  class yarn {
+    include common
+    include datanucleus
+  }
+
+  class yarn_slave {
+    include yarn_shuffle
+    include datanucleus
+  }
+
+  class yarn_shuffle {
+    package { 'spark-yarn-shuffle':
+      ensure => latest,
+    }
+  }
+
+  class datanucleus {
+    package { 'spark-datanucleus':
+      ensure => latest,
+    }
+  }
+
+  class common(
+      $master_url = 'yarn',
+      $master_host = $fqdn,
+      $master_port = 7077,
+      $worker_port = 7078,
+      $master_ui_port = 8080,
+      $worker_ui_port = 8081,
+      $history_ui_port = 18080,
+      $use_yarn_shuffle_service = false,
+  ) {
+
+    package { 'spark-core':
+      ensure => latest,
+    }
+### This is an ungodly hack to deal with the consequence of adding
+### unconditional hive-support into Spark
+### The addition is tracked by BIGTOP-2154
+### The real fix will come in BIGTOP-2268
+    package { 'spark-datanucleus':
+      ensure => latest,
+    }
+
+    file { '/etc/spark/conf/spark-env.sh':
+      content => template('spark/spark-env.sh'),
+      require => Package['spark-core'],
+    }
+
+    file { '/etc/spark/conf/spark-defaults.conf':
+      content => template('spark/spark-defaults.conf'),
+      require => Package['spark-core'],
+    }
+
+    file { '/etc/spark/conf/log4j.properties':
+      source  => '/etc/spark/conf/log4j.properties.template',
+      require => Package['spark-core'],
+    }
   }
 }

@@ -16,13 +16,34 @@
 # "$components" list. If $components isn't set then everything in the stack will
 # be installed as usual. Otherwise only a specified list will be set
 # Possible elements:
-# hadoop,yarn,hbase,tachyon,flume,solrcloud,spark,oozie,hcat,sqoop,sqoop2,httpfs,
-# hue,mahout,giraph,crunch,pig,hive,zookeeper
+# hadoop,yarn,hbase,alluxio,flume,solrcloud,spark,oozie,hcat,sqoop,sqoop2,httpfs,
+# hue,mahout,giraph,crunch,pig,hive,zookeeper,ycsb,qfs
 # Example (to deploy only HDFS and YARN server and gateway parts)
 # This can be a comma-separated list or an array.
 #hadoop_cluster_node::cluster_components:
 #  - hadoop
 #  - yarn
+
+# A list of roles can be assigned to each node in a cluster via "bigtop::roles"
+# hiera conf. This is useful if you want to run specific daemons/processes of a component
+# (lets say hadoop) on specific nodes. To enable roles, you need to explicitly set
+# "bigtop::roles_enabled" conf to true. By default, it is not enabled. If not enabled,
+# bigtop will honour the hadoop_cluster_node::cluster_components parameter and assume
+# respective roles to each node based on hadoop_head_node, hadoop_gateway_node
+# and other nodes (worker nodes) classification. For full list of roles
+# supported by each component, refer to $roles_map datastructure in cluster.pp file
+# for example:
+
+#bigtop::roles:
+# - namenode
+# - resourcemanager
+
+# By specifying above roles, you instruct a node to run only namenode and resourcemanager.
+# When roles are disabled, all worker daemons for each component assume hadoop_head_node as
+# their master. With roles enabled, this assumption may no longer be valid and its upto the user
+# to specify the FQDN for each master daemons to all nodes so that worker daemons can communicate
+# with master. FQDN and port for master daemons of each component can be specified using below
+# configurations.
 
 # Storage directories (will be created if doesn't exist)
 #hadoop::hadoop_storage_dirs:
@@ -32,6 +53,13 @@
 #  - /data/4
 
 #bigtop::bigtop_repo_uri: "http://mirror.example.com/path/to/mirror/"
+
+# Use a pre-installed java environment. The default value of 'false' will cause
+# the configured 'bigtop::jdk_package_name' package to be installed. Setting
+# this to 'true' will ignore the configured 'bigtop::jdk_package_name' but
+# requires a compatible java environment be avaialble prior to Bigtop
+# installation.
+#bigtop::jdk_preinstalled: false
 
 # Test-only variable controls if user hdfs' sshkeys should be installed to allow
 # for passwordless login across the cluster. Required by some integration tests
@@ -77,6 +105,10 @@ hadoop::common_yarn::hadoop_rm_port: "8032"
 
 hadoop::common_mapred_app::jobtracker_host: "%{hiera('bigtop::hadoop_head_node')}"
 hadoop::common_mapred_app::mapreduce_jobhistory_host: "%{hiera('bigtop::hadoop_head_node')}"
+# actually default but needed for hadoop::common_yarn::yarn_log_server_url here
+bigtop::hadoop_history_server_port: "19888"
+bigtop::hadoop_history_server_url: "http://%{hiera('hadoop::common_mapred_app::mapreduce_jobhistory_host')}:%{hiera('bigtop::hadoop_history_server_port')}"
+hadoop::common_yarn::yarn_log_server_url: "%{hiera('bigtop::hadoop_history_server_url')}/jobhistory/logs"
 
 # actually default but needed for hue::server::webhdfs_url here
 hadoop::httpfs::hadoop_httpfs_port: "14000"
@@ -85,11 +117,11 @@ bigtop::hadoop_zookeeper_port: "2181"
 hadoop::zk: "%{hiera('bigtop::hadoop_head_node')}:%{hiera('bigtop::hadoop_zookeeper_port')}"
 
 bigtop::hadoop_namenode_uri: "hdfs://%{hiera('hadoop::common_hdfs::hadoop_namenode_host')}:%{hiera('hadoop::common_hdfs::hadoop_namenode_port')}"
-hadoop-hbase::base_relative_rootdir: "/hbase"
-hadoop-hbase::common_config::rootdir: "%{hiera('bigtop::hadoop_namenode_uri')}%{hiera('hadoop-hbase::base_relative_rootdir')}"
-hadoop-hbase::common_config::zookeeper_quorum: "%{hiera('bigtop::hadoop_head_node')}"
-hadoop-hbase::common_config::kerberos_realm: "%{hiera('kerberos::site::realm')}"
-hadoop-hbase::client::thrift: true
+hadoop_hbase::base_relative_rootdir: "/hbase"
+hadoop_hbase::common_config::rootdir: "%{hiera('bigtop::hadoop_namenode_uri')}%{hiera('hadoop_hbase::base_relative_rootdir')}"
+hadoop_hbase::common_config::zookeeper_quorum: "%{hiera('bigtop::hadoop_head_node')}"
+hadoop_hbase::common_config::kerberos_realm: "%{hiera('kerberos::site::realm')}"
+hadoop_hbase::client::thrift: true
 
 solr::server::root_url: "%{hiera('bigtop::hadoop_namenode_uri')}"
 solr::server::zk: "%{hiera('hadoop::zk')}"
@@ -97,24 +129,30 @@ solr::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
 # Default but needed here to make sure, hue uses the same port
 solr::server::port: "1978"
 
-hadoop-oozie::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
+hadoop_oozie::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
 
 hcatalog::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
 hcatalog::webhcat::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
 
-spark::common::spark_master_host: "%{hiera('bigtop::hadoop_head_node')}"
+spark::common::master_host: "%{hiera('bigtop::hadoop_head_node')}"
 
-tachyon::common::master_host: "%{hiera('bigtop::hadoop_head_node')}"
+alluxio::common::master_host: "%{hiera('bigtop::hadoop_head_node')}"
 
-hadoop-zookeeper::server::myid: "0"
-hadoop-zookeeper::server::ensemble:
+# qfs
+qfs::common::metaserver_host: "%{hiera('bigtop::hadoop_head_node')}"
+qfs::common::metaserver_port: "30000"
+qfs::common::chunkserver_port: "30000"
+qfs::common::metaserver_client_port: "20000"
+qfs::common::chunkserver_client_port: "22000"
+
+hadoop_zookeeper::server::myid: "0"
+hadoop_zookeeper::server::ensemble:
   - "%{hiera('bigtop::hadoop_head_node')}:2888:3888"
-hadoop-zookeeper::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
+hadoop_zookeeper::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
 
 # those are only here because they were present as extlookup keys previously
 bigtop::hadoop_rm_http_port: "8088"
 bigtop::hadoop_rm_proxy_port: "8088"
-bigtop::hadoop_history_server_port: "19888"
 bigtop::sqoop2_server_port: "12000"
 bigtop::hbase_thrift_port: "9090"
 bigtop::hadoop_oozie_port: "11000"
@@ -122,8 +160,8 @@ bigtop::hadoop_oozie_port: "11000"
 hue::server::rm_host: "%{hiera('hadoop::common_yarn::hadoop_rm_host')}"
 hue::server::rm_port: "%{hiera('hadoop::common_yarn::hadoop_rm_port')}"
 hue::server::rm_url: "http://%{hiera('bigtop::hadoop_head_node')}:%{hiera('bigtop::hadoop_rm_http_port')}"
-hue::server::rm_proxy_url: "http://%{hiera('bigtop::hadoop_head_node')}:%{hiera('bigtop::hadoop_rm_proxy_port')}"
-hue::server::history_server_url: "http://%{hiera('bigtop::hadoop_head_node')}:%{hiera('bigtop::hadoop_history_server_port')}"
+hue::server::rm_proxy_url: "http://%{hiera('hadoop::common_yarn::hadoop_ps_host')}:%{hiera('hadoop::common_yarn::hadoop_ps_port')}"
+hue::server::history_server_url: "%{hiera('bigtop::hadoop_history_server_url')}"
 # those use fqdn instead of hadoop_head_node because it's only ever activated
 # on the gatewaynode
 hue::server::webhdfs_url: "http://%{fqdn}:%{hiera('hadoop::httpfs::hadoop_httpfs_port')}/webhdfs/v1"
@@ -136,8 +174,20 @@ hue::server::kerberos_realm: "%{hiera('kerberos::site::realm')}"
 
 giraph::client::zookeeper_quorum: "%{hiera('bigtop::hadoop_head_node')}"
 
-hadoop-hive::client::hbase_zookeeper_quorum: "%{hiera('hadoop-hbase::common_config::zookeeper_quorum')}"
+hadoop_hive::client::hbase_zookeeper_quorum: "%{hiera('hadoop_hbase::common_config::zookeeper_quorum')}"
 
 # tez
 hadoop::common::tez_conf_dir: "/etc/tez/conf"
 hadoop::common::tez_jars: "/usr/lib/tez"
+
+# to enable tez in hadoop, uncomment the lines below
+# hadoop::common::use_tez: true
+# hadoop::common_mapred_app::mapreduce_framework_name: "yarn-tez"
+
+# to enable tez in hive, uncomment the lines below
+# hadoop_hive::client::hive_execution_engine: "tez"
+
+zeppelin::server::spark_master_url: "yarn-client"
+zeppelin::server::hiveserver2_url: "jdbc:hive2://%{hiera('hadoop-hive::common::hiveserver2_host')}:%{hiera('hadoop-hive::common::hiveserver2_port')}"
+zeppelin::server::hiveserver2_user: "%{hiera('bigtop::hiveserver2_user')}"
+zeppelin::server::hiveserver2_password: "%{hiera('bigtop::hiveserver2_password')}"

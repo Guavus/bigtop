@@ -23,6 +23,7 @@
 %define hive_home /usr/lib/hive
 %define zookeeper_home /usr/lib/zookeeper
 %define hbase_home /usr/lib/hbase
+#BIGTOP_PATCH_FILES
 
 # CentOS 5 does not have any dist macro
 # So I will suppose anything that is not Mageia or a SUSE will be a RHEL/CentOS/Fedora
@@ -34,9 +35,9 @@
 # So for now brp-repack-jars is being deactivated until this is fixed.
 # See BIGTOP-294
 %define __os_install_post \
-    /usr/lib/rpm/redhat/brp-compress ; \
-    /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
-    /usr/lib/rpm/redhat/brp-strip-comment-note %{__strip} %{__objdump} ; \
+    %{_rpmconfigdir}/brp-compress ; \
+    %{_rpmconfigdir}/brp-strip-static-archive %{__strip} ; \
+    %{_rpmconfigdir}/brp-strip-comment-note %{__strip} %{__objdump} ; \
     /usr/lib/rpm/brp-python-bytecompile ; \
     %{nil}
 
@@ -110,7 +111,7 @@ language called Pig Latin, which has the following key properties:
 
 %prep
 %setup -n %{name}-%{pig_base_version}-src
-
+#BIGTOP_PATCH_COMMANDS
 %build
 env PIG_BASE_VERSION=%{pig_base_version} bash %{SOURCE1}
 

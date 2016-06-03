@@ -22,7 +22,6 @@
 %define pids_ignite %{ignite_home}/pids
 %define man_dir %{_mandir}
 %define ignite_username ignite
-%define ignite_services ignite-hadoop
 %define vcs_tag %{ignite_hadoop_version}
 
 %if  %{?suse_version:1}0
@@ -58,9 +57,9 @@
 # So for now brp-repack-jars is being deactivated until this is fixed.
 # See BIGTOP-294
 #%define __os_install_post \
-#    /usr/lib/rpm/redhat/brp-compress ; \
-#    /usr/lib/rpm/redhat/brp-strip-static-archive %{__strip} ; \
-#   /usr/lib/rpm/redhat/brp-strip-comment-note %{__strip} %{__objdump} ; \
+#    %{_rpmconfigdir}/brp-compress ; \
+#    %{_rpmconfigdir}/brp-strip-static-archive %{__strip} ; \
+#   %{_rpmconfigdir}/brp-strip-comment-note %{__strip} %{__objdump} ; \
 #   /usr/lib/rpm/brp-python-bytecompile ; \
 #   %{nil}
 %endif
@@ -76,7 +75,7 @@ Name: ignite-hadoop
 Version: %{ignite_hadoop_version}
 Release: %{ignite_hadoop_release}
 Summary: Ignite Hadoop accelerator. The system provides for in-memory caching of HDFS data and MR performance improvements
-URL: http://ignite.incubator.apache.org/
+URL: http://ignite.apache.org/
 Group: Development/Libraries
 Buildroot: %{_topdir}/INSTALL/%{name}-%{version}
 License: APL2
@@ -161,14 +160,9 @@ ln -s %{_localstatedir}/log/%{name} %{buildroot}/%{logs_ignite}
 %__install -d  -m 0755  %{buildroot}/%{_localstatedir}/run/%{name}
 ln -s %{_localstatedir}/run/%{name} %{buildroot}/%{pids_ignite}
 
-for service in %{ignite_services}
-do
-    init_file=$RPM_BUILD_ROOT/%{initd_dir}/%{name}
-    %__sed -e "s|@IGNITE_DAEMON@|${service}|" %{SOURCE3} > ${RPM_SOURCE_DIR}/ignite.node
-    bash %{SOURCE4} ${RPM_SOURCE_DIR}/ignite.node rpm $init_file
-
-    chmod 755 $init_file
-done
+init_file=$RPM_BUILD_ROOT/%{initd_dir}/%{name}
+bash %{SOURCE4} ${RPM_SOURCE_DIR}/ignite.svc rpm $init_file
+chmod 755 $init_file
 
 %__install -d -m 0755 $RPM_BUILD_ROOT/usr/bin
 

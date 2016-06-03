@@ -12,10 +12,12 @@ hadoop::hadoop_storage_dirs:
   - /data/4
 
 #hadoop_cluster_node::cluster_components:
+#  - alluxio
+#  - apex
 #  - crunch
 #  - flume
 #  - giraph
-#  - ignite-hadoop
+#  - ignite_hadoop
 #  - hbase
 #  - hcat
 #  - hive
@@ -25,14 +27,17 @@ hadoop::hadoop_storage_dirs:
 #  - mapred-app
 #  - oozie
 #  - pig
+#  - qfs
 #  - solrcloud
 #  - spark
 #  - sqoop
 #  - sqoop2
-#  - tachyon
 #  - tez
 #  - yarn
 #  - zookeeper
+#  - ycsb
+
+#bigtop::roles_enabled: false
 
 #bigtop::jdk_package_name: "openjdk-7-jre-headless"
 #bigtop::bigtop_repo_uri: "http://mirror.example.com/path/to/mirror/"

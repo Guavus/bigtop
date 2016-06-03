@@ -14,19 +14,24 @@
 # limitations under the License.
 
 class bigtop_toolchain::ant {
+  $ant =  'apache-ant-1.9.7'
 
-  include bigtop_toolchain::deps
+  $apache_prefix = nearest_apache_mirror()
 
-  exec {'/bin/tar xvzf /usr/src/apache-ant-1.9.5-bin.tar.gz':
+  exec {"/usr/bin/wget $apache_prefix/ant/binaries/$ant-bin.tar.gz":
+    cwd     => "/usr/src",
+    unless  => "/usr/bin/test -f /usr/src/$ant-bin.tar.gz",
+  }
+
+  exec {"/bin/tar xvzf /usr/src/$ant-bin.tar.gz":
     cwd         => '/usr/local',
-    refreshonly => true,
-    subscribe   => Exec["/usr/bin/wget $bigtop_toolchain::deps::apache_prefix/ant/binaries/apache-ant-1.9.5-bin.tar.gz"],
-    require     => Exec["/usr/bin/wget $bigtop_toolchain::deps::apache_prefix/ant/binaries/apache-ant-1.9.5-bin.tar.gz"],
+    creates     => "/usr/local/$ant",
+    require     => Exec["/usr/bin/wget $apache_prefix/ant/binaries/$ant-bin.tar.gz"],
   }
 
   file {'/usr/local/ant':
     ensure  => link,
-    target  => '/usr/local/apache-ant-1.9.5',
-    require => Exec['/bin/tar xvzf /usr/src/apache-ant-1.9.5-bin.tar.gz'],
+    target  => "/usr/local/$ant",
+    require => Exec["/bin/tar xvzf /usr/src/$ant-bin.tar.gz"],
   }
 }

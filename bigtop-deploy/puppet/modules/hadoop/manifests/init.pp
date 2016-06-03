@@ -27,6 +27,66 @@ class hadoop ($hadoop_security_authentication = "simple",
 
   include stdlib
 
+  class deploy ($roles) {
+
+    if ("datanode" in $roles) {
+      include hadoop::datanode
+    }
+
+    if ("namenode" in $roles) {
+      include hadoop::init_hdfs
+      include hadoop::namenode
+
+      if ("datanode" in $roles) {
+        Class['Hadoop::Namenode'] -> Class['Hadoop::Datanode'] -> Class['Hadoop::Init_hdfs']
+      } else {
+        Class['Hadoop::Namenode'] -> Class['Hadoop::Init_hdfs']
+      }
+    }
+
+    if ($hadoop::common_hdfs::ha != "disabled" and "standby-namenode" in $roles) {
+      include hadoop::namenode
+    }
+
+    if ("mapred-app" in $roles) {
+      include hadoop::mapred-app
+    }
+
+    if ("nodemanager" in $roles) {
+      include hadoop::nodemanager
+    }
+
+    if ("resourcemanager" in $roles) {
+      include hadoop::resourcemanager
+      include hadoop::historyserver
+      include hadoop::proxyserver
+
+      if ("nodemanager" in $roles) {
+        Class['Hadoop::Resourcemanager'] -> Class['Hadoop::Nodemanager']
+      }
+    }
+
+    if ($hadoop::common_hdfs::ha == "disabled" and "secondarynamenode" in $roles) {
+      include hadoop::secondarynamenode
+    }
+
+    if ("httpfs-server" in $roles) {
+      include hadoop::httpfs
+    }
+
+    if ("hadoop-client" in $roles) {
+      include hadoop::client
+    }
+  }
+
+  class init_hdfs {
+    exec { "init hdfs":
+      path    => ['/bin','/sbin','/usr/bin','/usr/sbin'],
+      command => 'bash -x /usr/lib/hadoop/libexec/init-hdfs.sh',
+      require => Package['hadoop-hdfs']
+    }
+  }
+
   class common ($hadoop_java_home = undef,
       $hadoop_classpath = undef,
       $hadoop_heapsize = undef,
@@ -46,6 +106,7 @@ class hadoop ($hadoop_security_authentication = "simple",
       $hadoop_pid_dir = undef,
       $hadoop_ident_string = undef,
       $hadoop_niceness = undef,
+      $use_tez = false,
       $tez_conf_dir = undef,
       $tez_jars = undef,
   ) inherits hadoop {
@@ -77,6 +138,7 @@ class hadoop ($hadoop_security_authentication = "simple",
       $hadoop_rm_webapp_port = "8088",
       $hadoop_rt_port = "8025",
       $hadoop_sc_port = "8030",
+      $yarn_log_server_url = undef,
       $yarn_nodemanager_resource_memory_mb = undef,
       $yarn_scheduler_maximum_allocation_mb = undef,
       $yarn_scheduler_minimum_allocation_mb = undef,
@@ -137,6 +199,10 @@ class hadoop ($hadoop_security_authentication = "simple",
       $hdfs_webhdfs_enabled = "true",
       $hdfs_replication = undef,
       $hdfs_datanode_fsdataset_volume_choosing_policy = undef,
+      $hdfs_nfs_bridge = "disabled",
+      $hdfs_nfs_bridge_user = undef,
+      $hdfs_nfs_gw_host = undef,
+      $hdfs_nfs_proxy_groups = undef,
       $namenode_data_dirs = suffix($hadoop::hadoop_storage_dirs, "/namenode"),
       $nameservice_id = "ha-nn-uri",
       $journalnode_host = "0.0.0.0",
@@ -177,8 +243,8 @@ class hadoop ($hadoop_security_authentication = "simple",
       $ssh_user_home   = "/var/lib/hadoop-hdfs"
       $ssh_user_keydir = "$ssh_user_home/.ssh"
       $ssh_keypath     = "$ssh_user_keydir/id_hdfsuser"
-      $ssh_privkey     = "hdfs/id_hdfsuser"
-      $ssh_pubkey      = "hdfs/id_hdfsuser.pub"
+      $ssh_privkey     = "hadoop/hdfs/id_hdfsuser"
+      $ssh_pubkey      = "hadoop/hdfs/id_hdfsuser.pub"
 
       file { $ssh_user_keydir:
         ensure  => directory,
@@ -189,7 +255,7 @@ class hadoop ($hadoop_security_authentication = "simple",
       }
 
       file { $ssh_keypath:
-        source  => "puppet:///files/$ssh_privkey",
+        source  => "puppet:///modules/$ssh_privkey",
         owner   => 'hdfs',
         group   => 'hdfs',
         mode    => '0600',
@@ -197,7 +263,7 @@ class hadoop ($hadoop_security_authentication = "simple",
       }
 
       file { "$ssh_user_keydir/authorized_keys":
-        source  => "puppet:///files/$ssh_pubkey",
+        source  => "puppet:///modules/$ssh_pubkey",
         owner   => 'hdfs',
         group   => 'hdfs',
         mode    => '0600',
@@ -294,7 +360,7 @@ class hadoop ($hadoop_security_authentication = "simple",
       $mapreduce_jobhistory_host = undef,
       $mapreduce_jobhistory_port = "10020",
       $mapreduce_jobhistory_webapp_port = "19888",
-      $mapreduce_framework_name = undef,
+      $mapreduce_framework_name = "yarn",
       $mapred_data_dirs = suffix($hadoop::hadoop_storage_dirs, "/mapred"),
       $mapreduce_cluster_temp_dir = "/mapred/system",
       $yarn_app_mapreduce_am_staging_dir = "/user",
@@ -368,6 +434,7 @@ class hadoop ($hadoop_security_authentication = "simple",
     Kerberos::Host_keytab <| title == "hdfs" |> -> Service["hadoop-hdfs-datanode"]
     Service<| title == 'hadoop-hdfs-namenode' |> -> Service['hadoop-hdfs-datanode']
 
+    hadoop::create_storage_dir { $hadoop::common_hdfs::hdfs_data_dirs: } ->
     file { $hadoop::common_hdfs::hdfs_data_dirs:
       ensure => directory,
       owner => hdfs,
@@ -513,6 +580,7 @@ class hadoop ($hadoop_security_authentication = "simple",
       }
 
       if (! ('qjournal://' in $hadoop::common_hdfs::shared_edits_dir)) {
+        hadoop::create_storage_dir { $hadoop::common_hdfs::shared_edits_dir: } ->
         file { $hadoop::common_hdfs::shared_edits_dir:
           ensure => directory,
         }
@@ -622,13 +690,22 @@ class hadoop ($hadoop_security_authentication = "simple",
         content => template('hadoop/hadoop-hdfs'),
         require => [Package["hadoop-hdfs-namenode"]],
     }
-    
+
+    hadoop::create_storage_dir { $hadoop::common_hdfs::namenode_data_dirs: } ->
     file { $hadoop::common_hdfs::namenode_data_dirs:
       ensure => directory,
       owner => hdfs,
       group => hdfs,
       mode => 700,
       require => [Package["hadoop-hdfs"]], 
+    }
+  }
+
+  define create_storage_dir {
+    exec { "mkdir $name":
+      command => "/bin/mkdir -p $name",
+      creates => $name,
+      user =>"root",
     }
   }
 
@@ -682,6 +759,7 @@ class hadoop ($hadoop_security_authentication = "simple",
       require => [ Package["hadoop-hdfs-journalnode"], File[$journalnode_cluster_journal_dir] ],
     }
 
+    hadoop::create_storage_dir { [$hadoop::common_hdfs::journalnode_edits_dir, $journalnode_cluster_journal_dir]: } ->
     file { [ "${hadoop::common_hdfs::journalnode_edits_dir}", "$journalnode_cluster_journal_dir" ]:
       ensure => directory,
       owner => 'hdfs',
@@ -748,6 +826,7 @@ class hadoop ($hadoop_security_authentication = "simple",
 
 
   class nodemanager {
+    include common_mapred_app
     include common_yarn
 
     package { "hadoop-yarn-nodemanager":
@@ -764,6 +843,7 @@ class hadoop ($hadoop_security_authentication = "simple",
     }
     Kerberos::Host_keytab <| tag == "mapreduce" |> -> Service["hadoop-yarn-nodemanager"]
 
+    hadoop::create_storage_dir { $hadoop::common_yarn::yarn_data_dirs: } ->
     file { $hadoop::common_yarn::yarn_data_dirs:
       ensure => directory,
       owner => yarn,
@@ -776,6 +856,7 @@ class hadoop ($hadoop_security_authentication = "simple",
   class mapred-app {
     include common_mapred_app
 
+    hadoop::create_storage_dir { $hadoop::common_mapred_app::mapred_data_dirs: } ->
     file { $hadoop::common_mapred_app::mapred_data_dirs:
       ensure => directory,
       owner => yarn,
@@ -787,6 +868,7 @@ class hadoop ($hadoop_security_authentication = "simple",
 
   class client {
       include common_mapred_app
+      include common_yarn
 
       $hadoop_client_packages = $operatingsystem ? {
         /(OracleLinux|CentOS|RedHat|Fedora)/  => [ "hadoop-doc", "hadoop-hdfs-fuse", "hadoop-client", "hadoop-libhdfs", "hadoop-debuginfo" ],

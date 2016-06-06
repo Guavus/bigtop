@@ -12,27 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+FROM bigtop/puppet:ubuntu-16.04
+MAINTAINER Amir Sanjar
 
-class bigtop_toolchain::puppet-modules {
+COPY bigtop_toolchain /etc/puppet/modules/bigtop_toolchain
+COPY gradle.home /usr/share/gradle.home
 
-  exec { 'install-puppet-stdlib':
-    path    => '/usr/bin:/bin',
-    command => 'puppet module install puppetlabs-stdlib',
-    creates => '/etc/puppet/modules/stdlib',
-  }
+RUN puppet apply -e "include bigtop_toolchain::installer"
+RUN chown jenkins:jenkins /usr/share/gradle.home
 
-  case $operatingsystem{
-    /Ubuntu|Debian/: {
-      exec { 'install-puppet-apt':
-        path    => '/usr/bin:/bin',
-        command => 'puppet module install puppetlabs-apt',
-        creates => '/etc/puppet/modules/apt',
-      }
-    }
-  }
-
-  stage { 'first':
-    before => Stage['main'],
-  }
-  class { 'bigtop_toolchain::puppet-modules-prereq': stage => 'first' }
-}
+ENV GRADLE_USER_HOME=/usr/share/gradle.home

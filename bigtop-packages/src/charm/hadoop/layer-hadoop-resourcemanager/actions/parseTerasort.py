@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -13,26 +15,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class bigtop_toolchain::puppet-modules {
+"""
+Simple script to parse terasort transaction results
+and reformat them as JSON for sending back to juju
+"""
+import sys
+import json
+from charmhelpers.core import hookenv
+import re
 
-  exec { 'install-puppet-stdlib':
-    path    => '/usr/bin:/bin',
-    command => 'puppet module install puppetlabs-stdlib',
-    creates => '/etc/puppet/modules/stdlib',
-  }
 
-  case $operatingsystem{
-    /Ubuntu|Debian/: {
-      exec { 'install-puppet-apt':
-        path    => '/usr/bin:/bin',
-        command => 'puppet module install puppetlabs-apt',
-        creates => '/etc/puppet/modules/apt',
-      }
-    }
-  }
+def parse_terasort_output():
+    """
+    Parse the output from terasort and set the action results:
 
-  stage { 'first':
-    before => Stage['main'],
-  }
-  class { 'bigtop_toolchain::puppet-modules-prereq': stage => 'first' }
-}
+    """
+
+    results = {}
+
+    # Find all of the interesting things
+    regex = re.compile('\t+(.*)=(.*)')
+    for line in sys.stdin.readlines():
+        m = regex.match(line)
+        if m:
+            results[m.group(1)] = m.group(2)
+    hookenv.action_set({"results.raw": json.dumps(results)})
+
+if __name__ == "__main__":
+    parse_terasort_output()

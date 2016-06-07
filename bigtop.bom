@@ -69,13 +69,19 @@ bigtop {
 /** Base Configuration of the mirror and archives */
   version = "1.2.0-SNAPSHOT"
   stack {
-    'jdk' { version = '1.7'; version_base = version }
+    'jdk' { version = '1.8'; version_base = version }
     'scala' { version = '2.10.4'; version_base = version }
   }
   apache {
     APACHE_MIRROR = "http://apache.osuosl.org"
     APACHE_ARCHIVE = "http://archive.apache.org/dist"
   }
+  
+  guavus {
+    GUAVUS_MIRROR = "http://devops-build-02:5050"
+    GUAVUS_ARCHIVE = "http://devops-build-02:5050"
+  }
+  
 /** End of Base Configuration */
 
   /** Dependencies section defines the order in which packages should be built.
@@ -317,9 +323,9 @@ bigtop {
       version { base = "4.7.1-${phoenix.hbase}"; pkg = '4.7.1'; release = 1 }
       tarball { destination = "$name-${version.base}-src.tar.gz"
                 source      = destination }
-      url     { download_path = "/$name/$name-${version.base}/src"
-                site = "${apache.APACHE_MIRROR}/${download_path}"
-                archive = "${apache.APACHE_ARCHIVE}/${download_path}" }
+      url     { download_path = "src_packages/$name/"
+                site = "${guavus.GUAVUS_MIRROR}/${download_path}"
+                archive = "${guavus.GUAVUS_ARCHIVE}/${download_path}" }
     }
     'bigtop-groovy' {
       name    = 'bigtop-groovy'

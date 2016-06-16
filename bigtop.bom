@@ -320,10 +320,10 @@ bigtop {
        * HBase version in the BOM.
        */
       phoenix.hbase ='HBase-1.1'
-      version { base = "4.7.0-${phoenix.hbase}"; pkg = '4.7.0'; release = guavus}
+      version { base = "4.7.0-${phoenix.hbase}"; pkg = '4.7.0'; release = 1}
       tarball { destination = "$name-${version.base}-src.tar.gz"
                 source      = destination }
-      url     { download_path = "src_packages/$name/"
+      url     { download_path = "src_packages/$name/$name-${version.base}/"
                 site = "${guavus.GUAVUS_MIRROR}/${download_path}"
                 archive = "${guavus.GUAVUS_ARCHIVE}/${download_path}" }
     }

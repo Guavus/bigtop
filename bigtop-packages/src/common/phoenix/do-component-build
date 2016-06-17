@@ -27,10 +27,8 @@ set -ex
 #    -Dspark.version=${SPARK_VERSION} \
 #    clean install "$@"
 
-mvn package -DskipTests clean install "$@"
-cd phoenix-assembly/
-mvn deploy -DskipTests
-cd ../
+mvn -DskipTests clean install deploy "$@"
+
 rm -rf build
 mkdir build
 

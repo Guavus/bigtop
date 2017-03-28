@@ -15,6 +15,7 @@ hadoop::hadoop_storage_dirs:
 #  - alluxio
 #  - apex
 #  - crunch
+#  - flink
 #  - flume
 #  - giraph
 #  - ignite_hadoop
@@ -36,6 +37,8 @@ hadoop::hadoop_storage_dirs:
 #  - yarn
 #  - zookeeper
 #  - ycsb
+#  - gpdb
+#  - ambari
 
 #bigtop::roles_enabled: false
 

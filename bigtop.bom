@@ -78,8 +78,8 @@ bigtop {
   }
   
   guavus {
-    GUAVUS_MIRROR = "http://devops-build-02:5050"
-    GUAVUS_ARCHIVE = "http://devops-build-02:5050"
+    GUAVUS_MIRROR = "http://artifacts.guavus.mtl/gvs-archive"
+    GUAVUS_ARCHIVE = "http://artifacts.guavus.mtl/gvs-archive"
   }
   
 /** End of Base Configuration */
@@ -323,7 +323,7 @@ bigtop {
       version { base = "4.7.0-${phoenix.hbase}"; pkg = '4.7.0'; release = 1}
       tarball { destination = "$name-${version.base}-src.tar.gz"
                 source      = destination }
-      url     { download_path = "src_packages/$name/$name-${version.base}/"
+      url     { download_path = "$name"
                 site = "${guavus.GUAVUS_MIRROR}/${download_path}"
                 archive = "${guavus.GUAVUS_ARCHIVE}/${download_path}" }
     }

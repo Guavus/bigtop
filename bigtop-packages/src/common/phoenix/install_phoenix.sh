@@ -128,12 +128,15 @@ cp -ra $BUILD_DIR/examples $PREFIX/$DOC_DIR
 find $PREFIX/$LIB_DIR -name '*.jar' -exec chmod a-x {} \;
 
 # Create version independent symlinks
+# phoenix-core 
+ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix-core*-guavus.jar | grep -v thin` $PREFIX/$LIB_DIR/phoenix-core.jar
+
 # phoenix-client for clients like sqlline
-ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix*-client.jar | grep -v thin` $PREFIX/$LIB_DIR/phoenix-client.jar
+ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix*-guavus-client.jar | grep -v thin` $PREFIX/$LIB_DIR/phoenix-client.jar
 
 # phoenix-thin-client
 ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix*-thin-client.jar` $PREFIX/$LIB_DIR/phoenix-thin-client.jar
 
 # phoenix-server for placing on the HBase regionserver classpath
-ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix*-server.jar` $PREFIX/$LIB_DIR/phoenix-server.jar
+ln -s `cd $PREFIX/$LIB_DIR ; ls phoenix-server*-guavus.jar | grep -v client` $PREFIX/$LIB_DIR/phoenix-server.jar
 

@@ -27,7 +27,7 @@ set -ex
 #    -Dspark.version=${SPARK_VERSION} \
 #    clean install "$@"
 
-mvn package -DskipTests clean install "$@"
+mvn package -DskipTests clean install deploy "$@"
 
 rm -rf build
 mkdir build

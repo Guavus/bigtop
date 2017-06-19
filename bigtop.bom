@@ -84,6 +84,10 @@ bigtop {
     APACHE_MIRROR = "https://www-us.apache.org"
     APACHE_ARCHIVE = "https://archive.apache.org/dist"
   }
+  guavus {
+    GUAVUS_MIRROR = "http://artifacts.guavus.mtl/gvs-archive"
+    GUAVUS_ARCHIVE = "http://artifacts.guavus.mtl/gvs-archive"
+  }
 /** End of Base Configuration */
 
   /** Dependencies section defines the order in which packages should be built.
@@ -334,12 +338,12 @@ bigtop {
        * HBase version in the BOM.
        */
       phoenix.hbase ='HBase-1.2'
-      version { base = "4.9.0-${phoenix.hbase}"; pkg = '4.9.0'; release = 1 }
+      version { base = "4.9.0-${phoenix.hbase}"; pkg = '4.9.0'; release = 1}
       tarball { destination = "$name-${version.base}-src.tar.gz"
                 source      = "apache-$name-${version.base}-src.tar.gz" }
-      url     { download_path = "/$name/apache-$name-${version.base}/src"
-                site = "${apache.APACHE_MIRROR}/${download_path}"
-                archive = "${apache.APACHE_ARCHIVE}/${download_path}" }
+       url     { download_path = "$name"
+                site = "${guavus.GUAVUS_MIRROR}/${download_path}"
+                archive = "${guavus.GUAVUS_ARCHIVE}/${download_path}" }
     }
     'bigtop-groovy' {
       name    = 'bigtop-groovy'
